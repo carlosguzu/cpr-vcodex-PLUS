@@ -25,12 +25,14 @@ class Activity {
   ActivityResultHandler resultHandler;
   ActivityResult result;
 
+  bool hasEntered = false;
+
  public:
   static constexpr uint8_t UI_TRANSITION_REFRESH_WEIGHT_NONE = 0;
   static constexpr uint8_t UI_TRANSITION_REFRESH_WEIGHT_DENSE = 2;
 
   explicit Activity(std::string name, GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : name(std::move(name)), renderer(renderer), mappedInput(mappedInput) {}
+      : name(std::move(name)), renderer(renderer), mappedInput(mappedInput), hasEntered(false) {}
   virtual ~Activity() = default;
   virtual void onEnter();
   virtual void onExit();

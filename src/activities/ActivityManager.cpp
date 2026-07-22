@@ -129,6 +129,10 @@ void ActivityManager::loop() {
         mappedInput.armConfirmReleaseGuard();
         requestUiTransitionRefresh(previousWeight, currentActivity->getUiTransitionRefreshWeight());
         LOG_DBG("ACT", "Popped from activity stack, new size = %zu", stackActivities.size());
+        if (!currentActivity->hasEntered) {
+          lock.unlock();
+          currentActivity->onEnter();
+        }
         // Handle result if necessary
         if (currentActivity->resultHandler) {
           LOG_DBG("ACT", "Handling result for popped activity");
