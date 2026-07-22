@@ -23,6 +23,7 @@
 #include "OpdsServerStore.h"
 #include "util/HeaderDateUtils.h"
 #include "util/ShortcutUiMetadata.h"
+#include "CrossPointState.h"
 
 namespace {
 std::string buildAppsHeaderSubtitle(const int selectedIndex, const int totalItems, const int itemsPerPage) {
@@ -209,6 +210,10 @@ void AppsActivity::openSelectedApp() {
   }
 
   startActivityForResult(std::move(activity), [this](const ActivityResult&) {
+    if (APP_STATE.pendingClippingJump.active) {
+      activityManager.goToReader(APP_STATE.pendingClippingJump.bookPath);
+      return;
+    }
     appShortcuts = getConfiguredShortcuts(CrossPointSettings::SHORTCUT_APPS);
     rebuildShortcutSubtitles();
     if (!appShortcuts.empty()) {

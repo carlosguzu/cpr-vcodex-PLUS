@@ -28,6 +28,7 @@
 #include "RecentBooksStore.h"
 #include "activities/apps/AchievementsActivity.h"
 #include "activities/apps/BookmarksAppActivity.h"
+#include "activities/apps/MyClippingsAppActivity.h"
 #include "activities/apps/DictionaryActivity.h"
 #include "activities/apps/FavoritesAppActivity.h"
 #include "activities/apps/FlashcardsAppActivity.h"
@@ -1013,6 +1014,16 @@ void HomeActivity::loop() {
         case ShortcutId::Bookmarks:
           startActivityForResult(std::make_unique<BookmarksAppActivity>(renderer, mappedInput),
                                  [this](const ActivityResult&) { requestFreshHomeRender(true); });
+          break;
+        case ShortcutId::MyClippings:
+          startActivityForResult(std::make_unique<MyClippingsAppActivity>(renderer, mappedInput),
+                                 [this](const ActivityResult&) {
+                                   if (APP_STATE.pendingClippingJump.active) {
+                                     activityManager.goToReader(APP_STATE.pendingClippingJump.bookPath);
+                                   } else {
+                                     requestFreshHomeRender(true);
+                                   }
+                                 });
           break;
         case ShortcutId::Favorites:
           startActivityForResult(std::make_unique<FavoritesAppActivity>(renderer, mappedInput),

@@ -9,6 +9,8 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/HeaderDateUtils.h"
+#include "CrossPointState.h"
+#include "RecentBooksStore.h"
 
 namespace {
 
@@ -144,33 +146,43 @@ void MyClippingsAppActivity::loop() {
     }
 
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-      if (!currentBookTitle.empty() && selectedIndex >= 0 && selectedIndex < static_cast<int>(books.size())) {
+      if (selectedIndex >= 0 && selectedIndex < static_cast<int>(books.size())) {
         const auto& book = books[selectedIndex];
-        if (book.title == currentBookTitle && detailIndex >= 0 && detailIndex < static_cast<int>(book.clippings.size())) {
+        if (detailIndex >= 0 && detailIndex < static_cast<int>(book.clippings.size())) {
           const auto& clip = book.clippings[detailIndex];
-          int pct = -1;
-          size_t pos = clip.location.find("Location:");
-          if (pos != std::string::npos) {
-            std::string pctStr = clip.location.substr(pos + 9);
-            std::string digits;
-            for (char c : pctStr) {
-              if (std::isdigit(static_cast<unsigned char>(c))) {
-                digits += c;
-              } else if (c == '%') {
-                break;
+          std::string bookPath;
+          const auto& recentList = RECENT_BOOKS.getBooks();
+          auto recentIt = std::find_if(recentList.begin(), recentList.end(),
+                                       [&book](const RecentBook& rb) { return rb.title == book.title; });
+          if (recentIt != recentList.end()) {
+            bookPath = recentIt->path;
+          }
+
+          if (!bookPath.empty()) {
+            int pct = -1;
+            size_t pos = clip.location.find("Location:");
+            if (pos != std::string::npos) {
+              std::string pctStr = clip.location.substr(pos + 9);
+              std::string digits;
+              for (char c : pctStr) {
+                if (std::isdigit(static_cast<unsigned char>(c))) {
+                  digits += c;
+                } else if (c == '%') {
+                  break;
+                }
+              }
+              if (!digits.empty()) {
+                pct = std::stoi(digits);
               }
             }
-            if (!digits.empty()) {
-              pct = std::stoi(digits);
+            if (pct >= 0 && pct <= 100) {
+              APP_STATE.pendingClippingJump.active = true;
+              APP_STATE.pendingClippingJump.bookPath = bookPath;
+              APP_STATE.pendingClippingJump.percent = pct;
+              APP_STATE.pendingClippingJump.text = clip.text;
+              finish();
+              return;
             }
-          }
-          if (pct >= 0 && pct <= 100) {
-            ActivityResult res;
-            res.isCancelled = false;
-            res.data = PercentResult{pct};
-            setResult(std::move(res));
-            finish();
-            return;
           }
         }
       }
@@ -298,8 +310,14 @@ void MyClippingsAppActivity::render(RenderLock&&) {
       }
     }
 
-    const bool isCurrentBook = (!currentBookTitle.empty() && book.title == currentBookTitle);
-    const auto labels = mappedInput.mapLabels(tr(STR_BACK), isCurrentBook ? tr(STR_SELECT) : "", tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+    bool hasPath = false;
+    const auto& recentList = RECENT_BOOKS.getBooks();
+    auto recentIt = std::find_if(recentList.begin(), recentList.end(),
+                                 [&book](const RecentBook& rb) { return rb.title == book.title; });
+    if (recentIt != recentList.end()) {
+      hasPath = true;
+    }
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), hasPath ? tr(STR_SELECT) : "", tr(STR_DIR_UP), tr(STR_DIR_DOWN));
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   } else {
     // Book list view

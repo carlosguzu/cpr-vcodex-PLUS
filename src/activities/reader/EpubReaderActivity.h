@@ -58,6 +58,8 @@ class EpubReaderActivity final : public Activity {
   bool skipNextButtonCheck = false;  // Skip button processing for one frame after subactivity exit
   bool automaticPageTurnActive = false;
   bool pendingForceFullRefresh = false;
+  bool menuClippingActive = false;
+  std::string pendingClippingText;
   bool statusBarTemporarilyHidden = false;
   bool waitingForConfirmSecondClick = false;
   unsigned long firstConfirmClickMs = 0UL;

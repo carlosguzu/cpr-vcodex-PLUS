@@ -293,6 +293,13 @@ void EpubReaderActivity::onEnter() {
       clampPercent(static_cast<int>(epub->calculateProgress(currentSpineIndex, 0.0f) * 100.0f + 0.5f)),
       getStatsChapterTitle(*epub, currentSpineIndex), 0);
 
+  if (APP_STATE.pendingClippingJump.active && APP_STATE.pendingClippingJump.bookPath == epub->getPath()) {
+    pendingClippingText = APP_STATE.pendingClippingJump.text;
+    int pct = APP_STATE.pendingClippingJump.percent;
+    APP_STATE.pendingClippingJump.clear();
+    jumpToPercent(pct);
+  }
+
   // Trigger first update
   requestUpdate();
 }
@@ -359,6 +366,7 @@ void EpubReaderActivity::loop() {
       if (highlightModeActive) {
         highlightModeActive = false;
         dictModeActive = false;
+        menuClippingActive = false;
         requestUpdate();
         return;
       }
@@ -367,6 +375,7 @@ void EpubReaderActivity::loop() {
         dictDefinition[0] = '\0';
       } else {
         dictModeActive = false;
+        menuClippingActive = false;
       }
       requestUpdate();
       return;
@@ -376,11 +385,19 @@ void EpubReaderActivity::loop() {
       saveHighlightToMyCLippings();
       highlightModeActive = false;
       dictModeActive = false;
+      menuClippingActive = false;
       requestUpdate();
       return;
     }
 
     if (!highlightModeActive && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      if (menuClippingActive) {
+        highlightModeActive = true;
+        highlightAnchorLineIdx = dictCursorLineIdx;
+        highlightAnchorWordIdx = dictCursorWordIdx;
+        requestUpdate();
+        return;
+      }
       if (section) {
         auto loadedPage = section->loadPageFromSectionFile();
         if (loadedPage) {
@@ -1117,9 +1134,15 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
           std::make_unique<MyClippingsAppActivity>(renderer, mappedInput, epub ? epub->getTitle() : ""),
           [this](const ActivityResult& result) {
             READING_STATS.resumeSession();
-            if (!result.isCancelled && std::holds_alternative<PercentResult>(result.data)) {
-              int pct = std::get<PercentResult>(result.data).percent;
-              jumpToPercent(pct);
+            if (APP_STATE.pendingClippingJump.active) {
+              if (APP_STATE.pendingClippingJump.bookPath == epub->getPath()) {
+                pendingClippingText = APP_STATE.pendingClippingJump.text;
+                int pct = APP_STATE.pendingClippingJump.percent;
+                APP_STATE.pendingClippingJump.clear();
+                jumpToPercent(pct);
+              } else {
+                activityManager.goToReader(APP_STATE.pendingClippingJump.bookPath);
+              }
             }
             requestUpdate(true);
           });
@@ -1127,11 +1150,10 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     }
     case EpubReaderMenuActivity::MenuAction::CLIPPING_MODE: {
       dictModeActive = true;
-      highlightModeActive = true;
+      highlightModeActive = false;
+      menuClippingActive = true;
       dictCursorLineIdx = 0;
       dictCursorWordIdx = 0;
-      highlightAnchorLineIdx = 0;
-      highlightAnchorWordIdx = 0;
       dictDefinition[0] = '\0';
       dictPopupVisible = false;
       requestUpdate(true);
@@ -1553,6 +1575,41 @@ void EpubReaderActivity::render(RenderLock&& lock) {
       }
       section->currentPage = newPage;
       pendingPercentJump = false;
+
+      if (!pendingClippingText.empty()) {
+        int exactPage = -1;
+        for (int pi = 0; pi < section->pageCount; pi++) {
+          section->currentPage = pi;
+          auto lp = section->loadPageFromSectionFile();
+          if (lp) {
+            std::string pageText;
+            pageText.reserve(1024);
+            for (const auto& el : lp->elements) {
+              if (el->getTag() != TAG_PageLine) continue;
+              const auto* pl = static_cast<const PageLine*>(el.get());
+              if (!pl->getBlock()) continue;
+              for (const auto& w : pl->getBlock()->getWords()) {
+                if (!pageText.empty()) pageText += ' ';
+                pageText += w;
+              }
+            }
+            std::string target = pendingClippingText;
+            if (target.size() > 40) {
+              target = target.substr(0, 40);
+            }
+            if (pageText.find(target) != std::string::npos) {
+              exactPage = pi;
+              break;
+            }
+          }
+        }
+        if (exactPage != -1) {
+          section->currentPage = exactPage;
+        } else {
+          section->currentPage = newPage;
+        }
+        pendingClippingText.clear();
+      }
     }
   }
 

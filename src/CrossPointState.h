@@ -27,6 +27,19 @@ struct PendingBookmarkJumpState {
   void clear();
 };
 
+struct PendingClippingJumpState {
+  bool active = false;
+  std::string bookPath;
+  int percent = 0;
+  std::string text;
+  void clear() {
+    active = false;
+    bookPath.clear();
+    percent = 0;
+    text.clear();
+  }
+};
+
 struct KOReaderSyncSessionState {
   bool active = false;
   std::string epubPath;
@@ -72,6 +85,7 @@ class CrossPointState {
   bool syncDayReminderLatched = false;
   KOReaderSyncSessionState koReaderSyncSession;
   PendingBookmarkJumpState pendingBookmarkJump;
+  PendingClippingJumpState pendingClippingJump;
   ~CrossPointState() = default;
 
   // Get singleton instance
