@@ -539,6 +539,11 @@ void setup() {
 
   BootRecovery::markBootCompleted();
 
+  // If passcode is enabled, directly setup the boot lock screen overlaying the destination activity.
+  if (SETTINGS.passcodeEnabled) {
+    activityManager.goToLockscreenBoot();
+  }
+
   if (isSilentReboot) {
     activityManager.requestUpdateAndWait();
     gpio.update();

@@ -10,6 +10,7 @@
 #include "OpdsServerStore.h"
 #include "apps/AppsActivity.h"
 #include "boot_sleep/BootActivity.h"
+#include "boot_sleep/LockscreenActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
 #include "home/CrashActivity.h"
@@ -276,6 +277,36 @@ void ActivityManager::goToSleep() {
 }
 
 void ActivityManager::goToBoot() { replaceActivity(std::make_unique<BootActivity>(renderer, mappedInput)); }
+
+void ActivityManager::goToLockscreen() {
+  pushActivity(std::make_unique<LockscreenActivity>(renderer, mappedInput));
+}
+
+void ActivityManager::goToLockscreenBoot() {
+  std::unique_ptr<Activity> destination = std::move(pendingActivity);
+  pendingActivity.reset();
+  pendingAction = PendingAction::None;
+
+  if (!destination) {
+    destination = std::make_unique<HomeActivity>(renderer, mappedInput);
+  }
+
+  RenderLock lock;
+  if (currentActivity) {
+    currentActivity->onExit();
+    currentActivity.reset();
+  }
+  while (!stackActivities.empty()) {
+    stackActivities.back()->onExit();
+    stackActivities.pop_back();
+  }
+
+  stackActivities.push_back(std::move(destination));
+  currentActivity = std::make_unique<LockscreenActivity>(renderer, mappedInput);
+
+  lock.unlock();
+  currentActivity->onEnter();
+}
 
 void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::Style style) {
   replaceActivity(std::make_unique<FullScreenMessageActivity>(renderer, mappedInput, std::move(message), style));

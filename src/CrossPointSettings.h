@@ -396,6 +396,11 @@ class CrossPointSettings {
   // Image rendering mode in EPUB reader
   uint8_t imageRendering = IMAGES_DISPLAY;
 
+  // Passcode lock settings
+  uint8_t passcodeEnabled = 0;
+  uint16_t passcodePin = 0;  // 4-digit PIN stored as 0000-9999
+  uint8_t showIfFoundOnLock = 1;
+
   ~CrossPointSettings() = default;
 
   // Get singleton instance

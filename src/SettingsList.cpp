@@ -107,6 +107,12 @@ const std::vector<SettingInfo>& getSettingsList() {
                           "sleepTimeout", StrId::STR_CAT_SYSTEM),
         SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &CrossPointSettings::showHiddenFiles, "showHiddenFiles",
                             StrId::STR_CAT_SYSTEM),
+        SettingInfo::Toggle(StrId::STR_PASSCODE_ENABLED, &CrossPointSettings::passcodeEnabled, "passcodeEnabled",
+                            StrId::STR_CAT_SYSTEM),
+        // passcodePin is a uint16_t (0-9999), not configurable via device buttons.
+        // Set the PIN through the web settings UI.
+        SettingInfo::Toggle(StrId::STR_SHOW_IF_FOUND_ON_LOCK, &CrossPointSettings::showIfFoundOnLock,
+                            "showIfFoundOnLock", StrId::STR_CAT_SYSTEM),
 
         // --- Apps ---
         SettingInfo::Toggle(StrId::STR_DISPLAY_DAY, &CrossPointSettings::displayDay, "displayDay", StrId::STR_APPS),

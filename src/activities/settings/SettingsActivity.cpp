@@ -46,6 +46,7 @@
 #include "activities/apps/SleepAppActivity.h"
 #include "activities/apps/SyncDayActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "activities/util/PinEntryActivity.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -152,6 +153,9 @@ const std::vector<SettingInfo>& getDeviceSystemSettings() {
       SettingInfo::Enum(StrId::STR_TIME_TO_SLEEP, &CrossPointSettings::sleepTimeout,
                         {StrId::STR_MIN_1, StrId::STR_MIN_5, StrId::STR_MIN_10, StrId::STR_MIN_15, StrId::STR_MIN_30}),
       SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &CrossPointSettings::showHiddenFiles),
+      SettingInfo::Toggle(StrId::STR_PASSCODE_ENABLED, &CrossPointSettings::passcodeEnabled),
+      SettingInfo::Action(StrId::STR_SET_PASSCODE, SettingAction::SetPasscode),
+      SettingInfo::Toggle(StrId::STR_SHOW_IF_FOUND_ON_LOCK, &CrossPointSettings::showIfFoundOnLock),
       SettingInfo::Action(StrId::STR_WIFI_NETWORKS, SettingAction::Network),
       SettingInfo::Action(StrId::STR_KOREADER_SYNC, SettingAction::KOReaderSync),
       SettingInfo::Enum(StrId::STR_OPDS_FILENAME_FORMAT, &CrossPointSettings::opdsFilenameFormat,
@@ -175,6 +179,9 @@ const std::vector<SettingInfo>& getDeviceOnlyControlSettings() {
 const std::vector<SettingInfo>& getDeviceOnlySystemSettings() {
   static const std::vector<SettingInfo> settings = {
       SettingInfo::Action(StrId::STR_WIFI_NETWORKS, SettingAction::Network),
+      SettingInfo::Toggle(StrId::STR_PASSCODE_ENABLED, &CrossPointSettings::passcodeEnabled),
+      SettingInfo::Action(StrId::STR_SET_PASSCODE, SettingAction::SetPasscode),
+      SettingInfo::Toggle(StrId::STR_SHOW_IF_FOUND_ON_LOCK, &CrossPointSettings::showIfFoundOnLock),
       SettingInfo::Action(StrId::STR_KOREADER_SYNC, SettingAction::KOReaderSync),
       SettingInfo::Action(StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser),
       SettingInfo::Action(StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache),
@@ -798,6 +805,34 @@ void SettingsActivity::toggleCurrentSetting() {
         break;
       case SettingAction::IfFound:
         startActivityForResult(std::make_unique<IfFoundActivity>(renderer, mappedInput), resultHandler);
+        break;
+      case SettingAction::SetPasscode:
+        startActivityForResult(
+            std::make_unique<PinEntryActivity>(renderer, mappedInput, tr(STR_ENTER_NEW_PIN)),
+            [this](const ActivityResult& firstResult) {
+              if (firstResult.isCancelled) {
+                requestUpdate();
+                return;
+              }
+              const uint16_t firstPin = std::get<PageResult>(firstResult.data).page;
+              startActivityForResult(
+                  std::make_unique<PinEntryActivity>(renderer, mappedInput, tr(STR_CONFIRM_PIN)),
+                  [this, firstPin](const ActivityResult& secondResult) {
+                    if (secondResult.isCancelled) {
+                      requestUpdate();
+                      return;
+                    }
+                    const uint16_t secondPin = std::get<PageResult>(secondResult.data).page;
+                    if (firstPin == secondPin) {
+                      SETTINGS.passcodePin = firstPin;
+                      SETTINGS.saveToFile();
+                      showTransientPopup(tr(STR_PIN_SET), -1, 500);
+                    } else {
+                      showTransientPopup(tr(STR_PIN_MISMATCH), -1, 500);
+                    }
+                    requestUpdate();
+                  });
+            });
         break;
       case SettingAction::None:
         // Do nothing

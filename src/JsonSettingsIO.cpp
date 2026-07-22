@@ -389,6 +389,11 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
   loadEnum("sleepTimeout", s.sleepTimeout, CrossPointSettings::SLEEP_TIMEOUT_COUNT);
   loadToggle("showHiddenFiles", s.showHiddenFiles);
 
+  // Passcode lock
+  loadToggle("passcodeEnabled", s.passcodeEnabled);
+  s.passcodePin = doc["passcodePin"] | s.passcodePin;
+  loadToggle("showIfFoundOnLock", s.showIfFoundOnLock);
+
   loadString("opdsServerUrl", s.opdsServerUrl, sizeof(s.opdsServerUrl));
   loadString("opdsUsername", s.opdsUsername, sizeof(s.opdsUsername));
   loadEnum("opdsFilenameFormat", s.opdsFilenameFormat, CrossPointSettings::OPDS_FILENAME_FORMAT_COUNT);
@@ -748,6 +753,11 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
 
   doc["sleepTimeout"] = s.sleepTimeout;
   doc["showHiddenFiles"] = s.showHiddenFiles;
+
+  // Passcode lock
+  doc["passcodeEnabled"] = s.passcodeEnabled;
+  doc["passcodePin"] = s.passcodePin;
+  doc["showIfFoundOnLock"] = s.showIfFoundOnLock;
 
   doc["displayDay"] = s.displayDay;
   doc["syncDayWifiChoice"] = s.syncDayWifiChoice;
