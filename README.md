@@ -1,12 +1,63 @@
+# CPR-vCodex-PLUS
+
 > *"Standing on the shoulders of giants."*
 >
-> **CPR-vCodex-PLUS is a personal fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) and [CPR-vCodex](https://github.com/franssjz/cpr-vcodex)**, focused on improving security, text highlights, reading consistency, and overall reader experience without sacrificing simplicity or performance.
+> This project is **CPR-vCodex-PLUS**, a personal fork of [CPR-vCodex](https://github.com/franssjz/cpr-vcodex) (which is itself a fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)).
+> 
+> Below is what I did and what I offer in this **vCodex-PLUS** project:
+
+## Passcode Protection
+
+The passcode feature secures your device and personal reading data with a lightweight, secure PIN lockscreen.
+
+### Capabilities:
+- **Lockscreen on Boot & Wakeup**: The device automatically prompts for your passcode immediately upon power-on or wake-up from sleep, preventing unauthorized access.
+- **Passcode Creation Flow**: Access the passcode setup from `Settings > Passcode Settings`. It features a double-confirmation setup flow to prevent typing errors.
+- **"If Found" Integration**: If enabled under settings, your custom owner information (loaded from `/if_found.txt` on the SD card) is rendered in a neat framed block directly on the lockscreen so anyone who finds a lost device can contact you.
+- **Incorrect Entry Alerts**: Visual feedback displays when an incorrect passcode is entered, and the lock resets for another try.
+- **Robust Lifecycle Safety**: Integrated directly into the `ActivityManager` lifecycle. If the reader or home screen was active before sleep/boot, the lockscreen will shield it and only trigger the destination's `onEnter()` once successfully unlocked.
+
+Here is a visual demonstration of the passcode protection capability:
+
+![Passcode Protection Showcase](./docs/videos/passcode_showcase.mp4)
+
+---
+
+## My Clippings (Highlights & Clipping Jumps)
+
+The Clippings feature allows you to highlight and save your favorite passages from books, view them in a dedicated manager, and jump directly back to the exact page.
+
+### Capabilities:
+- **Interactive Cursor Clipping**: Access "Clip/highlight" in the reader menu or via side-button holds. The cursor starts in dictionary-style navigation mode, allowing you to move to your desired start word. Pressing the `Confirm` button anchors the selection, transitioning into word-by-word highlighting. Pressing `Confirm` again saves the highlight.
+- **Export to SD Card**: Clippings are appended to `/MyClippings.txt` on your SD card root in a standard Kindle-like format:
+  ```text
+  Book Title (Author)
+  - Your Highlight | Location: 45%
+
+  This is the passage of text you highlighted...
+  ==========
+  ```
+- **"My Clippings" App**: Access all your clippings via the global `Apps > My Clippings` app or home shortcut. Clippings are organized by book title, listing locations and texts.
+- **Precise Location Jumping**: In the detail view of "My Clippings" (whether opened from within the reader or via the Apps/Home menus), pressing `Select` will automatically open the book. It uses a **precise text-based substring matching algorithm** that scans the pages of the target chapter to find the exact page containing the passage, rather than falling on an approximate percentage.
+- **Blinking Highlight Animation**: When you jump to a clipping, the reader highlights the matching text on the page with a solid inverted block (white text on a black background) for exactly **1 second**, blinking it to draw your attention directly to the passage before restoring the clean page.
+
+Here is a visual demonstration of the clippings capability:
+
+![My Clippings Showcase](./docs/videos/clippings_showcase.mp4)
+
+---
+
+# Original CPR-vCodex Documentation
+
+Below is the original documentation of the base CPR-vCodex project, detailing all its other features (analytics, sync day, dictionary, sleep screen customization, etc.).
+
+> **CPR-vCodex is a personal fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)**, focused on improving reading consistency, long-term reading habits, and overall reader experience without sacrificing simplicity or performance.
 >
 > Instead of only tracking progress, this fork focuses on the full reading journey — consistency, habits, milestones, statistics, customization, and personal reading identity.
 >
 > The project adds optional layers such as reading streaks, detailed analytics, achievements, heatmaps, Sync Day tracking, session history, and deeper personalization, while still allowing the interface to remain clean and distraction-free if preferred.
 
-# CPR-vCodex-PLUS
+# CPR-vCodex
 
 <p align="center">
   <img src="./docs/images/500x100.png" alt="CPR-vCodex logo" width="500" />
@@ -28,8 +79,6 @@ Unlike a complete rewrite, CPR-vCodex intentionally stays close to the upstream 
 
 Some of the main additions include:
 
-- **full passcode protection**: secure lockscreen on boot/sleep, double-confirmation setup flow, and "If Found" owner info display
-- **rich clippings support**: interactive reader highlighting, Kindle-compatible SD card export, a global clippings manager, precise substring-based page jumping, and blinking highlights
 - full reading analytics: reading stats, heatmaps, day detail, reading profile, session history, goals, streaks, and achievements
 - Sync Day support for reliable offline day-based statistics on hardware without a trustworthy sleep RTC
 - per-book statistics tools, including reading-time correction, start-date editing, and per-book stats reset
@@ -292,8 +341,6 @@ That is enough to start using the core `vcodex` additions: coherent day-based an
 | `SD firmware update` | select a `.bin` from the SD card and flash it locally from Settings | [Settings](#settings) |
 | `Long-press button behavior` | choose `Off`, `Chapter skip`, or `Orientation change` for reader side-button holds | [Settings](#settings) |
 | `Bookmarks` | EPUB bookmarks plus a global bookmarks app | [Bookmarks](#bookmarks) |
-| `Passcode Lock` | Secure 4-digit PIN lock on boot and sleep with owner info display | [Passcode Protection](#passcode-protection) |
-| `My Clippings` | Highlight reader passages, export to SD card, and jump back with precise text matching and blinking highlights | [My Clippings (Highlights & Clipping Jumps)](#my-clippings-highlights--clipping-jumps) |
 | `Sleep tools` | folder selection, preview, cache, sequential and shuffle behavior | [Sleep](#sleep) |
 | `Text Darkness` | global `Normal / Dark / Extra Dark` text rendering control, based on the idea first seen in `crosspet` | [Settings](#settings) |
 | `Bionic Reading` | `Off / Normal / Subtle` EPUB focus-reading modes with stable text weight in BW and anti-aliased rendering | [Settings](#settings) |
@@ -466,45 +513,6 @@ Supported flow:
 - open the reader menu and choose `Save bookmark` to save the current page without removing an existing bookmark
 - reopen a book directly at a saved bookmark from the global bookmarks app
 - delete individual bookmarks or all bookmarks for one book
-
-## Passcode Protection
-
-The passcode feature secures your device and personal reading data with a lightweight, secure PIN lockscreen.
-
-### Capabilities:
-- **Lockscreen on Boot & Wakeup**: The device automatically prompts for your passcode immediately upon power-on or wake-up from sleep, preventing unauthorized access.
-- **Passcode Creation Flow**: Access the passcode setup from `Settings > Passcode Settings`. It features a double-confirmation setup flow to prevent typing errors.
-- **"If Found" Integration**: If enabled under settings, your custom owner information (loaded from `/if_found.txt` on the SD card) is rendered in a neat framed block directly on the lockscreen so anyone who finds a lost device can contact you.
-- **Incorrect Entry Alerts**: Visual feedback displays when an incorrect passcode is entered, and the lock resets for another try.
-- **Robust Lifecycle Safety**: Integrated directly into the `ActivityManager` lifecycle. If the reader or home screen was active before sleep/boot, the lockscreen will shield it and only trigger the destination's `onEnter()` once successfully unlocked.
-
-Here is a visual demonstration of the passcode protection capability:
-
-![Passcode Protection Showcase](./docs/videos/passcode_showcase.mp4)
-
----
-
-## My Clippings (Highlights & Clipping Jumps)
-
-The Clippings feature allows you to highlight and save your favorite passages from books, view them in a dedicated manager, and jump directly back to the exact page.
-
-### Capabilities:
-- **Interactive Cursor Clipping**: Access "Clip/highlight" in the reader menu or via side-button holds. The cursor starts in dictionary-style navigation mode, allowing you to move to your desired start word. Pressing the `Confirm` button anchors the selection, transitioning into word-by-word highlighting. Pressing `Confirm` again saves the highlight.
-- **Export to SD Card**: Clippings are appended to `/MyClippings.txt` on your SD card root in a standard Kindle-like format:
-  ```text
-  Book Title (Author)
-  - Your Highlight | Location: 45%
-
-  This is the passage of text you highlighted...
-  ==========
-  ```
-- **"My Clippings" App**: Access all your clippings via the global `Apps > My Clippings` app or home shortcut. Clippings are organized by book title, listing locations and texts.
-- **Precise Location Jumping**: In the detail view of "My Clippings" (whether opened from within the reader or via the Apps/Home menus), pressing `Select` will automatically open the book. It uses a **precise text-based substring matching algorithm** that scans the pages of the target chapter to find the exact page containing the passage, rather than falling on an approximate percentage.
-- **Blinking Highlight Animation**: When you jump to a clipping, the reader highlights the matching text on the page with a solid inverted block (white text on a black background) for exactly **1 second**, blinking it to draw your attention directly to the passage before restoring the clean page.
-
-Here is a visual demonstration of the clippings capability:
-
-![My Clippings Showcase](./docs/videos/clippings_showcase.mp4)
 
 ## Flashcards
 
