@@ -1587,60 +1587,78 @@ void EpubReaderActivity::render(RenderLock&& lock) {
         std::vector<BlinkWord> tempBlinkWords;
         const int readerFontId = SETTINGS.getReaderFontId();
 
-        for (int pi = 0; pi < section->pageCount; pi++) {
-          section->currentPage = pi;
-          auto lp = section->loadPageFromSectionFile();
-          if (lp) {
-            struct PageWordInfo {
-              std::string text;
-              int16_t x, y, w;
-            };
-            std::vector<PageWordInfo> allWords;
-            for (const auto& el : lp->elements) {
-              if (el->getTag() != TAG_PageLine) continue;
-              const auto* pl = static_cast<const PageLine*>(el.get());
-              if (pl->getBlock()) {
-                const auto& elWords = pl->getBlock()->getWords();
-                const auto& elXpos = pl->getBlock()->getWordXpos();
-                for (size_t wi = 0; wi < elWords.size(); wi++) {
-                  PageWordInfo pwi;
-                  pwi.text = elWords[wi];
-                  pwi.x = static_cast<int16_t>(pl->xPos + orientedMarginLeft + elXpos[wi]);
-                  pwi.y = static_cast<int16_t>(pl->yPos + orientedMarginTop);
-                  pwi.w = static_cast<int16_t>(renderer.getTextWidth(readerFontId, pwi.text.c_str()));
-                  allWords.push_back(pwi);
+        int startPage = newPage;
+        int maxOffset = 5;
+        for (int offset = 0; offset <= maxOffset; offset++) {
+          std::vector<int> candidates;
+          if (offset == 0) {
+            candidates.push_back(startPage);
+          } else {
+            if (startPage + offset < section->pageCount) candidates.push_back(startPage + offset);
+            if (startPage - offset >= 0) candidates.push_back(startPage - offset);
+          }
+
+          bool found = false;
+          for (int pi : candidates) {
+            section->currentPage = pi;
+            auto lp = section->loadPageFromSectionFile();
+            if (lp) {
+              struct PageWordInfo {
+                std::string text;
+                int16_t x, y, w;
+              };
+              std::vector<PageWordInfo> allWords;
+              for (const auto& el : lp->elements) {
+                if (el->getTag() != TAG_PageLine) continue;
+                const auto* pl = static_cast<const PageLine*>(el.get());
+                if (pl->getBlock()) {
+                  const auto& elWords = pl->getBlock()->getWords();
+                  const auto& elXpos = pl->getBlock()->getWordXpos();
+                  for (size_t wi = 0; wi < elWords.size(); wi++) {
+                    PageWordInfo pwi;
+                    pwi.text = elWords[wi];
+                    pwi.x = static_cast<int16_t>(pl->xPos + orientedMarginLeft + elXpos[wi]);
+                    pwi.y = static_cast<int16_t>(pl->yPos + orientedMarginTop);
+                    pwi.w = static_cast<int16_t>(renderer.getTextWidth(readerFontId, pwi.text.c_str()));
+                    allWords.push_back(pwi);
+                  }
                 }
               }
-            }
 
-            std::string pageText;
-            std::vector<size_t> wordOffsets;
-            for (const auto& aw : allWords) {
-              wordOffsets.push_back(pageText.size());
-              if (!pageText.empty()) pageText += ' ';
-              pageText += aw.text;
-            }
-
-            std::string target = pendingClippingText;
-            if (target.size() > 40) {
-              target = target.substr(0, 40);
-            }
-
-            size_t matchPos = pageText.find(target);
-            if (matchPos != std::string::npos) {
-              exactPage = pi;
-              const int lineH = static_cast<int>(renderer.getLineHeight(readerFontId));
-              for (size_t i = 0; i < allWords.size(); i++) {
-                size_t wStart = wordOffsets[i];
-                size_t wEnd = wStart + allWords[i].text.size();
-                if (wEnd > matchPos && wStart < matchPos + target.size()) {
-                  tempBlinkWords.push_back(BlinkWord{allWords[i].x, allWords[i].y, allWords[i].w, static_cast<int16_t>(lineH), allWords[i].text});
-                }
+              std::string pageText;
+              std::vector<size_t> wordOffsets;
+              for (const auto& aw : allWords) {
+                wordOffsets.push_back(pageText.size());
+                if (!pageText.empty()) pageText += ' ';
+                pageText += aw.text;
               }
-              break;
+
+              std::string target = pendingClippingText;
+              if (target.size() > 40) {
+                target = target.substr(0, 40);
+              }
+
+              size_t matchPos = pageText.find(target);
+              if (matchPos != std::string::npos) {
+                exactPage = pi;
+                const int lineH = static_cast<int>(renderer.getLineHeight(readerFontId));
+                for (size_t i = 0; i < allWords.size(); i++) {
+                  size_t wStart = wordOffsets[i];
+                  size_t wEnd = wStart + allWords[i].text.size();
+                  if (wEnd > matchPos && wStart < matchPos + target.size()) {
+                    tempBlinkWords.push_back(BlinkWord{allWords[i].x, allWords[i].y, allWords[i].w, static_cast<int16_t>(lineH), allWords[i].text});
+                  }
+                }
+                found = true;
+                break;
+              }
             }
           }
+          if (found) {
+            break;
+          }
         }
+
         if (exactPage != -1) {
           section->currentPage = exactPage;
           blinkWords = std::move(tempBlinkWords);
