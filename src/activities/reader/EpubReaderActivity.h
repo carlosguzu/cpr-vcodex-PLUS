@@ -60,6 +60,13 @@ class EpubReaderActivity final : public Activity {
   bool pendingForceFullRefresh = false;
   bool menuClippingActive = false;
   std::string pendingClippingText;
+  struct BlinkWord {
+    int16_t x, y, w, h;
+    std::string text;
+  };
+  std::vector<BlinkWord> blinkWords;
+  bool blinkActive = false;
+  unsigned long blinkStartTime = 0UL;
   bool statusBarTemporarilyHidden = false;
   bool waitingForConfirmSecondClick = false;
   unsigned long firstConfirmClickMs = 0UL;

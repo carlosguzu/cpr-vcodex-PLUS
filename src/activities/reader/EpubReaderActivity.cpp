@@ -332,6 +332,12 @@ void EpubReaderActivity::loop() {
   READING_STATS.tickActiveSession();
   const unsigned long nowMs = millis();
 
+  if (blinkActive && nowMs - blinkStartTime > 1000UL) {
+    blinkActive = false;
+    blinkWords.clear();
+    requestUpdate(true);
+  }
+
   // Dictionary / Clipping mode: power button cycles (Dict Mode -> Clipping Selection -> Save Highlight)
   if (SETTINGS.shortPwrBtn == CrossPointSettings::DICT_MODE &&
       mappedInput.wasReleased(MappedInputManager::Button::Power)) {
@@ -1578,33 +1584,68 @@ void EpubReaderActivity::render(RenderLock&& lock) {
 
       if (!pendingClippingText.empty()) {
         int exactPage = -1;
+        std::vector<BlinkWord> tempBlinkWords;
+        const int readerFontId = SETTINGS.getReaderFontId();
+
         for (int pi = 0; pi < section->pageCount; pi++) {
           section->currentPage = pi;
           auto lp = section->loadPageFromSectionFile();
           if (lp) {
-            std::string pageText;
-            pageText.reserve(1024);
+            struct PageWordInfo {
+              std::string text;
+              int16_t x, y, w;
+            };
+            std::vector<PageWordInfo> allWords;
             for (const auto& el : lp->elements) {
               if (el->getTag() != TAG_PageLine) continue;
               const auto* pl = static_cast<const PageLine*>(el.get());
-              if (!pl->getBlock()) continue;
-              for (const auto& w : pl->getBlock()->getWords()) {
-                if (!pageText.empty()) pageText += ' ';
-                pageText += w;
+              if (pl->getBlock()) {
+                const auto& elWords = pl->getBlock()->getWords();
+                const auto& elXpos = pl->getBlock()->getWordXpos();
+                for (size_t wi = 0; wi < elWords.size(); wi++) {
+                  PageWordInfo pwi;
+                  pwi.text = elWords[wi];
+                  pwi.x = static_cast<int16_t>(pl->xPos + orientedMarginLeft + elXpos[wi]);
+                  pwi.y = static_cast<int16_t>(pl->yPos + orientedMarginTop);
+                  pwi.w = static_cast<int16_t>(renderer.getTextWidth(readerFontId, pwi.text.c_str()));
+                  allWords.push_back(pwi);
+                }
               }
             }
+
+            std::string pageText;
+            std::vector<size_t> wordOffsets;
+            for (const auto& aw : allWords) {
+              wordOffsets.push_back(pageText.size());
+              if (!pageText.empty()) pageText += ' ';
+              pageText += aw.text;
+            }
+
             std::string target = pendingClippingText;
             if (target.size() > 40) {
               target = target.substr(0, 40);
             }
-            if (pageText.find(target) != std::string::npos) {
+
+            size_t matchPos = pageText.find(target);
+            if (matchPos != std::string::npos) {
               exactPage = pi;
+              const int lineH = static_cast<int>(renderer.getLineHeight(readerFontId));
+              for (size_t i = 0; i < allWords.size(); i++) {
+                size_t wStart = wordOffsets[i];
+                size_t wEnd = wStart + allWords[i].text.size();
+                if (wEnd > matchPos && wStart < matchPos + target.size()) {
+                  tempBlinkWords.push_back(BlinkWord{allWords[i].x, allWords[i].y, allWords[i].w, static_cast<int16_t>(lineH), allWords[i].text});
+                }
+              }
               break;
             }
           }
         }
         if (exactPage != -1) {
           section->currentPage = exactPage;
+          blinkWords = std::move(tempBlinkWords);
+          blinkActive = !blinkWords.empty();
+          blinkStartTime = millis();
         } else {
           section->currentPage = newPage;
         }
@@ -1946,6 +1987,13 @@ void EpubReaderActivity::renderContents(std::shared_ptr<Page> page, const int or
   const bool hasConfiguredRefreshMode = ReaderUtils::getConfiguredReaderRefreshMode(configuredRefreshMode);
 
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop, SETTINGS.bionicReading);
+  if (blinkActive && !blinkWords.empty()) {
+    const int readerFontId = SETTINGS.getReaderFontId();
+    for (const auto& bw : blinkWords) {
+      renderer.fillRect(bw.x, bw.y, bw.w, bw.h, true);
+      renderer.drawText(readerFontId, bw.x, bw.y, bw.text.c_str(), false);
+    }
+  }
   renderStatusBar();
   fcm->logStats("bw_render");
   const auto tBwRender = millis();
