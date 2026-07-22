@@ -102,14 +102,14 @@ def _read_counter(counter_path, default_value):
 
 
 def _extract_release_number(base_version, text):
-    match = re.search(rf"{re.escape(base_version)}\.(\d+)-cpr-vcodex", text)
+    match = re.search(rf"{re.escape(base_version)}\.(\d+)-vcodex-PLUS", text)
     return int(match.group(1)) if match else None
 
 
 def _latest_tag_release_number(project_dir, base_version):
     try:
         tags = subprocess.check_output(
-            ["git", "tag", "--list", f"{base_version}.*-cpr-vcodex"],
+            ["git", "tag", "--list", f"{base_version}.*-vcodex-PLUS"],
             text=True,
             stderr=subprocess.PIPE,
             cwd=project_dir,
@@ -190,9 +190,9 @@ def release_number_from_tag(base_version):
     if not tag:
         return None
 
-    match = re.fullmatch(rf"{re.escape(base_version)}\.(\d+)-cpr-vcodex", tag)
+    match = re.fullmatch(rf"{re.escape(base_version)}\.(\d+)-vcodex-PLUS", tag)
     if not match:
-        raise ValueError(f"Release tag {tag!r} does not match expected pattern {base_version}.<release>-cpr-vcodex")
+      raise ValueError(f"Release tag {tag!r} does not match expected pattern {base_version}.<release>-vcodex-PLUS")
 
     return int(match.group(1)), tag
 

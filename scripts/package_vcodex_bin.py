@@ -108,7 +108,7 @@ def package_vcodex_bin(source, target, env):
     output_dir = project_dir / "artifacts"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    artifact_name = f"{safe_version}-cpr-vcodex.bin"
+    artifact_name = f"{safe_version}-vcodex-PLUS.bin"
     artifact_path = output_dir / artifact_name
     shutil.copy2(firmware_path, artifact_path)
 
@@ -123,7 +123,7 @@ def package_vcodex_bin(source, target, env):
     }
     if build_seq is not None:
         metadata["buildSequence"] = build_seq
-    metadata_path = output_dir / f"{safe_version}-cpr-vcodex.json"
+    metadata_path = output_dir / f"{safe_version}-vcodex-PLUS.json"
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     if env.subst("$PIOENV") == "gh_release" and os.environ.get(RELEASE_DRY_RUN_ENV) == "1":

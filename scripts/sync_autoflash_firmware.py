@@ -16,8 +16,8 @@ from typing import Any
 DEFAULT_REPO = "franssjz/cpr-vcodex"
 APP_PARTITION_SIZE = 6_553_600
 MIN_FIRMWARE_SIZE = 1_000_000
-VERSION_RE = re.compile(r"\b\d+\.\d+\.\d+\.\d+(?:[.-][0-9A-Za-z]+)?-[0-9A-Za-z._-]*cpr-vcodex\b")
-FIRMWARE_TAG_RE = re.compile(r"^\d+\.\d+\.\d+\.\d+(?:[.-][0-9A-Za-z]+)?-cpr-vcodex$")
+VERSION_RE = re.compile(r"\b\d+\.\d+\.\d+\.\d+(?:[.-][0-9A-Za-z]+)?-[0-9A-Za-z._-]*vcodex-PLUS\b")
+FIRMWARE_TAG_RE = re.compile(r"^\d+\.\d+\.\d+\.\d+(?:[.-][0-9A-Za-z]+)?-vcodex-PLUS$")
 DOWNLOAD_URL_RE = re.compile(
     r"https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/[^\"'\s<>]+\.bin"
 )
@@ -71,7 +71,7 @@ def firmware_tag_sort_key(tag: str) -> tuple[int, int, int, int, int, str] | Non
     if not FIRMWARE_TAG_RE.fullmatch(tag):
         return None
 
-    prefix = tag.removesuffix("-cpr-vcodex")
+    prefix = tag.removesuffix("-vcodex-PLUS")
     match = FIRMWARE_VERSION_PREFIX_RE.match(prefix)
     if not match:
         return None

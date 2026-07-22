@@ -2,7 +2,7 @@ name: Compile Release
 on:
   push:
     tags:
-      - '*-cpr-vcodex'
+      - '*-vcodex-PLUS'
 
 concurrency:
   group: release-${{ github.ref }}
