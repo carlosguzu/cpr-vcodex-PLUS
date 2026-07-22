@@ -7,6 +7,7 @@
 
 #include "AchievementsActivity.h"
 #include "BookmarksAppActivity.h"
+#include "MyClippingsAppActivity.h"
 #include "DictionaryActivity.h"
 #include "FavoritesAppActivity.h"
 #include "FlashcardsAppActivity.h"
@@ -180,6 +181,9 @@ void AppsActivity::openSelectedApp() {
       return;
     case ShortcutId::Bookmarks:
       activity = std::make_unique<BookmarksAppActivity>(renderer, mappedInput);
+      break;
+    case ShortcutId::MyClippings:
+      activity = std::make_unique<MyClippingsAppActivity>(renderer, mappedInput);
       break;
     case ShortcutId::Favorites:
       activity = std::make_unique<FavoritesAppActivity>(renderer, mappedInput);

@@ -165,7 +165,8 @@ class CrossPointSettings {
     SLEEP = 1,
     PAGE_TURN = 2,
     FORCE_REFRESH = 3,
-    TOGGLE_STATUS_BAR = 4,
+    DICT_MODE = 4,
+    TOGGLE_STATUS_BAR = 5,
     SHORT_PWRBTN_COUNT
   };
   enum TILT_PAGE_TURN { TILT_OFF = 0, TILT_NORMAL = 1, TILT_INVERTED = 2, TILT_PAGE_TURN_COUNT };
@@ -353,20 +354,22 @@ class CrossPointSettings {
   uint8_t recentBooksShortcutOrder = 11;
   uint8_t bookmarksShortcut = SHORTCUT_APPS;
   uint8_t bookmarksShortcutOrder = 12;
+  uint8_t myClippingsShortcut = SHORTCUT_APPS;
+  uint8_t myClippingsShortcutOrder = 13;
   uint8_t favoritesShortcut = SHORTCUT_APPS;
-  uint8_t favoritesShortcutOrder = 13;
+  uint8_t favoritesShortcutOrder = 14;
   uint8_t flashcardsShortcut = SHORTCUT_APPS;
-  uint8_t flashcardsShortcutOrder = 14;
+  uint8_t flashcardsShortcutOrder = 15;
   uint8_t dictionaryShortcut = SHORTCUT_APPS;
-  uint8_t dictionaryShortcutOrder = 15;
+  uint8_t dictionaryShortcutOrder = 16;
   uint8_t fileTransferShortcut = SHORTCUT_APPS;
-  uint8_t fileTransferShortcutOrder = 16;
+  uint8_t fileTransferShortcutOrder = 17;
   uint8_t screenCleanShortcut = SHORTCUT_APPS;
-  uint8_t screenCleanShortcutOrder = 17;
+  uint8_t screenCleanShortcutOrder = 18;
   uint8_t sleepShortcut = SHORTCUT_APPS;
-  uint8_t sleepShortcutOrder = 18;
+  uint8_t sleepShortcutOrder = 19;
   uint8_t opdsBrowserShortcut = SHORTCUT_HOME;
-  uint8_t opdsBrowserShortcutOrder = 19;
+  uint8_t opdsBrowserShortcutOrder = 20;
   uint8_t browseFilesShortcutVisible = 1;
   // Legacy Stats shortcut visibility retained for settings.json migration to readingStatsShortcut.
   uint8_t statsShortcutVisible = 1;
@@ -380,6 +383,7 @@ class CrossPointSettings {
   uint8_t readMeShortcutVisible = 1;
   uint8_t recentBooksShortcutVisible = 1;
   uint8_t bookmarksShortcutVisible = 1;
+  uint8_t myClippingsShortcutVisible = 1;
   uint8_t favoritesShortcutVisible = 1;
   uint8_t flashcardsShortcutVisible = 1;
   uint8_t dictionaryShortcutVisible = 1;

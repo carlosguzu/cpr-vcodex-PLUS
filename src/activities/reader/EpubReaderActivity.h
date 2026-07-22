@@ -8,6 +8,7 @@
 #include "BookmarkStore.h"
 #include "EpubReaderMenuActivity.h"
 #include "activities/Activity.h"
+#include "util/ButtonNavigator.h"
 
 class Page;
 
@@ -17,6 +18,25 @@ class EpubReaderActivity final : public Activity {
   int currentSpineIndex = 0;
   int nextPageNumber = 0;
   std::optional<uint16_t> pendingPageJump;
+  // Dictionary cursor mode
+  bool dictModeActive = false;
+  bool dictPopupVisible = false;  // definition popup is showing
+  int dictCursorLineIdx = 0;
+  int dictCursorWordIdx = 0;
+  char dictDefinition[512] = {};
+  char dictLookedUpWord[256] = {};  // word that produced the current definition (set by render)
+  int dictPopupScrollOffset = 0;    // first visible line within the wrapped definition (page multiple)
+  int dictActiveDictIdx = 0;        // index within enabled-only dict list shown in popup
+  int dictPopupTotalLines = 0;      // total wrapped lines of current definition (set by render)
+  int dictCurrentLineWordCount = 999; // word count of cursor line (set each render, used by Right)
+  ButtonNavigator dictLineNav;  // Up/Down/PageBack/PageForward – line navigation
+  ButtonNavigator dictWordNav;  // Left/Right – word navigation
+
+  // Highlight / text-selection mode (activated by long-pressing Confirm while in dict mode)
+  bool highlightModeActive = false;
+  int highlightAnchorLineIdx = 0;
+  int highlightAnchorWordIdx = 0;
+
   // Set when navigating to a footnote href with a fragment (e.g. #note1).
   // Cleared on the next render after the new section loads and resolves it to a page.
   std::string pendingAnchor;
@@ -106,6 +126,8 @@ class EpubReaderActivity final : public Activity {
   void invalidateCurrentOverlayPageCache();
   std::shared_ptr<Page> loadCurrentPageForOverlay(int& outMarginLeft, int& outMarginTop);
 
+  void saveHighlightToMyCLippings();
+
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);
   void restoreSavedPosition();
@@ -132,5 +154,7 @@ class EpubReaderActivity final : public Activity {
   void loop() override;
   void render(RenderLock&& lock) override;
   bool isReaderActivity() const override { return true; }
+  // Skip the 10ms loop delay while navigating dict/highlight cursor so input feels snappy.
+  bool skipLoopDelay() override { return dictModeActive && !dictPopupVisible; }
   ScreenshotInfo getScreenshotInfo() const override;
 };

@@ -34,6 +34,8 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
   items.push_back({MenuAction::DICTIONARY, StrId::STR_DICTIONARY});
   items.push_back({MenuAction::VIEW_BOOKMARKS, StrId::STR_VIEW_BOOKMARKS});
   items.push_back({MenuAction::SAVE_BOOKMARK, StrId::STR_SAVE_BOOKMARK});
+  items.push_back({MenuAction::MY_CLIPPINGS, StrId::STR_MY_CLIPPINGS});
+  items.push_back({MenuAction::CLIPPING_MODE, StrId::STR_CLIPPING_MODE});
   items.push_back({MenuAction::ROTATE_SCREEN, StrId::STR_ORIENTATION});
   items.push_back({MenuAction::AUTO_PAGE_TURN, StrId::STR_AUTO_TURN_PAGES_PER_MIN});
   items.push_back({MenuAction::GO_TO_PERCENT, StrId::STR_GO_TO_PERCENT});

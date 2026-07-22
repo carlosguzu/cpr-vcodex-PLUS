@@ -95,7 +95,7 @@ const std::vector<SettingInfo>& getSettingsList() {
                           "longPressButtonBehavior", StrId::STR_CAT_CONTROLS),
         SettingInfo::Enum(StrId::STR_SHORT_PWR_BTN, &CrossPointSettings::shortPwrBtn,
                           {StrId::STR_IGNORE, StrId::STR_SLEEP, StrId::STR_PAGE_TURN, StrId::STR_FORCE_REFRESH,
-                           StrId::STR_TOGGLE_STATUS_BAR},
+                           StrId::STR_DICTIONARY, StrId::STR_TOGGLE_STATUS_BAR},
                           "shortPwrBtn", StrId::STR_CAT_CONTROLS),
         SettingInfo::Enum(StrId::STR_TILT_PAGE_TURN, &CrossPointSettings::tiltPageTurn,
                           {StrId::STR_STATE_OFF, StrId::STR_NORMAL, StrId::STR_INVERTED}, "tiltPageTurn",

@@ -27,6 +27,7 @@ enum class ShortcutId {
   ScreenClean,
   Sleep,
   OpdsBrowser,
+  MyClippings,
 };
 
 struct ShortcutDefinition {
@@ -39,8 +40,8 @@ struct ShortcutDefinition {
   uint8_t CrossPointSettings::* visiblePtr;
 };
 
-inline const std::array<ShortcutDefinition, 17>& getShortcutDefinitions() {
-  static const std::array<ShortcutDefinition, 17> definitions = {
+inline const std::array<ShortcutDefinition, 18>& getShortcutDefinitions() {
+  static const std::array<ShortcutDefinition, 18> definitions = {
       ShortcutDefinition{ShortcutId::BrowseFiles, StrId::STR_BROWSE_FILES, StrId::STR_NONE_OPT, UIIcon::Folder,
                          &CrossPointSettings::browseFilesShortcut, &CrossPointSettings::browseFilesShortcutOrder,
                          &CrossPointSettings::browseFilesShortcutVisible},
@@ -73,6 +74,9 @@ inline const std::array<ShortcutDefinition, 17>& getShortcutDefinitions() {
       ShortcutDefinition{ShortcutId::Bookmarks, StrId::STR_BOOKMARKS, StrId::STR_BOOKMARKS_APP_DESC, UIIcon::Book,
                          &CrossPointSettings::bookmarksShortcut, &CrossPointSettings::bookmarksShortcutOrder,
                          &CrossPointSettings::bookmarksShortcutVisible},
+      ShortcutDefinition{ShortcutId::MyClippings, StrId::STR_MY_CLIPPINGS, StrId::STR_MY_CLIPPINGS_APP_DESC, UIIcon::Book,
+                         &CrossPointSettings::myClippingsShortcut, &CrossPointSettings::myClippingsShortcutOrder,
+                         &CrossPointSettings::myClippingsShortcutVisible},
       ShortcutDefinition{ShortcutId::Favorites, StrId::STR_FAVORITES, StrId::STR_FAVORITES_APP_DESC, UIIcon::Heart,
                          &CrossPointSettings::favoritesShortcut, &CrossPointSettings::favoritesShortcutOrder,
                          &CrossPointSettings::favoritesShortcutVisible},

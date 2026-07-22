@@ -22,6 +22,9 @@
 #include "EpubReaderFootnotesActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
 #include "DictionaryHistoryActivity.h"
+#include "DictionaryDefinitionActivity.h"
+#include "DictionaryStore.h"
+#include "activities/apps/MyClippingsAppActivity.h"
 #include "DictionaryWordSelectActivity.h"
 #include "KOReaderCredentialStore.h"
 #include "KOReaderSyncActivity.h"
@@ -321,6 +324,192 @@ void EpubReaderActivity::loop() {
 
   READING_STATS.tickActiveSession();
   const unsigned long nowMs = millis();
+
+  // Dictionary / Clipping mode: power button cycles (Dict Mode -> Clipping Selection -> Save Highlight)
+  if (SETTINGS.shortPwrBtn == CrossPointSettings::DICT_MODE &&
+      mappedInput.wasReleased(MappedInputManager::Button::Power)) {
+    if (!dictModeActive) {
+      dictModeActive = true;
+      highlightModeActive = false;
+      dictCursorLineIdx = 0;
+      dictCursorWordIdx = 0;
+      dictDefinition[0] = '\0';
+      dictPopupVisible = false;
+      dictActiveDictIdx = 0;
+      dictPopupScrollOffset = 0;
+      if (DICTIONARIES.getEntries().empty()) {
+        DICTIONARIES.scan();
+        DICTIONARIES.loadConfig();
+      }
+    } else if (!highlightModeActive) {
+      highlightModeActive = true;
+      highlightAnchorLineIdx = dictCursorLineIdx;
+      highlightAnchorWordIdx = dictCursorWordIdx;
+    } else {
+      saveHighlightToMyCLippings();
+      dictModeActive = false;
+      highlightModeActive = false;
+    }
+    requestUpdate();
+    return;
+  }
+
+  if (dictModeActive) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+      if (highlightModeActive) {
+        highlightModeActive = false;
+        dictModeActive = false;
+        requestUpdate();
+        return;
+      }
+      if (dictPopupVisible) {
+        dictPopupVisible = false;
+        dictDefinition[0] = '\0';
+      } else {
+        dictModeActive = false;
+      }
+      requestUpdate();
+      return;
+    }
+
+    if (highlightModeActive && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      saveHighlightToMyCLippings();
+      highlightModeActive = false;
+      dictModeActive = false;
+      requestUpdate();
+      return;
+    }
+
+    if (!highlightModeActive && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      if (section) {
+        auto loadedPage = section->loadPageFromSectionFile();
+        if (loadedPage) {
+          auto p = std::shared_ptr<Page>(std::move(loadedPage));
+          int lineIdx = 0;
+          std::string wordToLookup;
+          for (const auto& el : p->elements) {
+            if (el->getTag() != TAG_PageLine) continue;
+            if (lineIdx == dictCursorLineIdx) {
+              const auto* pl = static_cast<const PageLine*>(el.get());
+              if (pl->getBlock()) {
+                const auto& elWords = pl->getBlock()->getWords();
+                if (dictCursorWordIdx >= 0 && dictCursorWordIdx < static_cast<int>(elWords.size())) {
+                  const std::string& rawWord = elWords[dictCursorWordIdx];
+                  size_t ws = 0;
+                  while (ws < rawWord.size() && !isalpha(static_cast<unsigned char>(rawWord[ws]))) ws++;
+                  size_t we = rawWord.size();
+                  while (we > ws && !isalpha(static_cast<unsigned char>(rawWord[we - 1]))) we--;
+                  wordToLookup = rawWord.substr(ws, we - ws);
+                }
+              }
+              break;
+            }
+            lineIdx++;
+          }
+
+          if (!wordToLookup.empty()) {
+            if (!DICTIONARIES.getEntries().empty()) {
+              DICTIONARIES.prepareActive();
+            }
+            const auto lookup = DICTIONARIES.lookup(wordToLookup, true);
+            const int readerFontId = SETTINGS.getReaderFontId();
+            const int defFontId = DICTIONARIES.getDefinitionFontId(readerFontId);
+            READING_STATS.noteActivity();
+            int marginTop, marginRight, marginBottom, marginLeft;
+            renderer.getOrientedViewableTRBL(&marginTop, &marginRight, &marginBottom, &marginLeft);
+            marginLeft += SETTINGS.screenMargin;
+            marginTop += SETTINGS.screenMargin;
+            startActivityForResult(
+                std::make_unique<DictionaryDefinitionActivity>(
+                    renderer, mappedInput, p,
+                    lookup.headword.empty() ? wordToLookup : lookup.headword,
+                    lookup.definition.empty() ? tr(STR_NO_DEFINITION) : lookup.definition,
+                    lookup.truncated, readerFontId, defFontId,
+                    marginLeft, marginTop),
+                [this](const ActivityResult&) {
+                  READING_STATS.resumeSession();
+                  requestUpdate(true);
+                });
+            return;
+          }
+        }
+      }
+    }
+
+    if (dictPopupVisible) {
+      constexpr int POPUP_VISIBLE_LINES = 4;
+      bool popupChanged = false;
+      dictLineNav.onPressAndContinuous(
+          {MappedInputManager::Button::Up, MappedInputManager::Button::PageBack}, [&] {
+            if (dictPopupScrollOffset > 0) {
+              dictPopupScrollOffset -= POPUP_VISIBLE_LINES;
+              popupChanged = true;
+            }
+          });
+      dictLineNav.onPressAndContinuous(
+          {MappedInputManager::Button::Down, MappedInputManager::Button::PageForward}, [&] {
+            const int totalPages = (dictPopupTotalLines + POPUP_VISIBLE_LINES - 1) / POPUP_VISIBLE_LINES;
+            const int currentPage = (POPUP_VISIBLE_LINES > 0) ? dictPopupScrollOffset / POPUP_VISIBLE_LINES : 0;
+            if (currentPage < totalPages - 1) {
+              dictPopupScrollOffset += POPUP_VISIBLE_LINES;
+              popupChanged = true;
+            }
+          });
+      if (popupChanged) requestUpdate();
+      return;
+    }
+
+    bool cursorMoved = false;
+
+    dictLineNav.onPressAndContinuous(
+        {MappedInputManager::Button::Up, MappedInputManager::Button::PageBack}, [&] {
+          if (dictCursorLineIdx > 0) {
+            dictCursorLineIdx--;
+            dictCursorWordIdx = 0;
+            dictPopupVisible = false;
+            dictDefinition[0] = '\0';
+            cursorMoved = true;
+          }
+        });
+
+    dictLineNav.onPressAndContinuous(
+        {MappedInputManager::Button::Down, MappedInputManager::Button::PageForward}, [&] {
+          dictCursorLineIdx++;
+          dictCursorWordIdx = 0;
+          dictPopupVisible = false;
+          dictDefinition[0] = '\0';
+          cursorMoved = true;
+        });
+
+    dictWordNav.onPressAndContinuous({MappedInputManager::Button::Left}, [&] {
+      if (dictCursorWordIdx > 0) {
+        dictCursorWordIdx--;
+      } else if (dictCursorLineIdx > 0) {
+        dictCursorLineIdx--;
+        dictCursorWordIdx = 999;
+      }
+      dictPopupVisible = false;
+      dictDefinition[0] = '\0';
+      cursorMoved = true;
+    });
+
+    dictWordNav.onPressAndContinuous({MappedInputManager::Button::Right}, [&] {
+      if (dictCursorWordIdx + 1 < dictCurrentLineWordCount) {
+        dictCursorWordIdx++;
+      } else {
+        dictCursorLineIdx++;
+        dictCursorWordIdx = 0;
+      }
+      dictPopupVisible = false;
+      dictDefinition[0] = '\0';
+      cursorMoved = true;
+    });
+
+    if (cursorMoved) {
+      requestUpdate(true);
+    }
+    return;
+  }
 
   if (waitingForConfirmSecondClick && ReaderUtils::hasNonConfirmNavigationInput(mappedInput)) {
     waitingForConfirmSecondClick = false;
@@ -922,6 +1111,32 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       saveCurrentPageBookmark();
       break;
     }
+    case EpubReaderMenuActivity::MenuAction::MY_CLIPPINGS: {
+      READING_STATS.noteActivity();
+      startActivityForResult(
+          std::make_unique<MyClippingsAppActivity>(renderer, mappedInput, epub ? epub->getTitle() : ""),
+          [this](const ActivityResult& result) {
+            READING_STATS.resumeSession();
+            if (!result.isCancelled && std::holds_alternative<PercentResult>(result.data)) {
+              int pct = std::get<PercentResult>(result.data).percent;
+              jumpToPercent(pct);
+            }
+            requestUpdate(true);
+          });
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::CLIPPING_MODE: {
+      dictModeActive = true;
+      highlightModeActive = true;
+      dictCursorLineIdx = 0;
+      dictCursorWordIdx = 0;
+      highlightAnchorLineIdx = 0;
+      highlightAnchorWordIdx = 0;
+      dictDefinition[0] = '\0';
+      dictPopupVisible = false;
+      requestUpdate(true);
+      break;
+    }
     case EpubReaderMenuActivity::MenuAction::GO_TO_PERCENT: {
       float bookProgress = 0.0f;
       {
@@ -1378,9 +1593,188 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     currentPageFootnotes = std::move(page->footnotes);
     cacheCurrentPageForOverlay(page, orientedMarginLeft, orientedMarginTop);
 
+    struct {
+      bool valid = false;
+      int x = 0;
+      int y = 0;
+      int lineH = 0;
+      int wordW = 0;
+      std::string word;
+      std::string displayWord;
+    } dictCursor;
+
+    struct HlWord {
+      int16_t x, y, w;
+      char text[20];
+    };
+    constexpr int MAX_HL_WORDS = 96;
+    HlWord hlWords[MAX_HL_WORDS];
+    int hlWordCount = 0;
+
+    if (dictModeActive) {
+      int totalLines = 0;
+      for (const auto& el : page->elements) {
+        if (el->getTag() == TAG_PageLine) totalLines++;
+      }
+      if (totalLines > 0 && dictCursorLineIdx >= totalLines) {
+        dictCursorLineIdx = totalLines - 1;
+      }
+
+      int lineIdx = 0;
+      std::string rawWord;
+      for (const auto& el : page->elements) {
+        if (el->getTag() != TAG_PageLine) continue;
+        const auto* pl = static_cast<const PageLine*>(el.get());
+        if (!pl->getBlock()) { lineIdx++; continue; }
+        const auto& elWords = pl->getBlock()->getWords();
+
+        if (lineIdx == dictCursorLineIdx) {
+          if (!elWords.empty()) {
+            const auto& xpos = pl->getBlock()->getWordXpos();
+            dictCurrentLineWordCount = static_cast<int>(elWords.size());
+            if (dictCursorWordIdx >= dictCurrentLineWordCount) {
+              dictCursorWordIdx = dictCurrentLineWordCount - 1;
+            }
+            dictCursor.valid = true;
+            dictCursor.x = pl->xPos + orientedMarginLeft + xpos[dictCursorWordIdx];
+            dictCursor.y = pl->yPos + orientedMarginTop;
+            rawWord = elWords[dictCursorWordIdx];
+            dictCursor.displayWord = rawWord;
+            const int readerFontId = SETTINGS.getReaderFontId();
+            dictCursor.lineH = static_cast<int16_t>(renderer.getLineHeight(readerFontId));
+            dictCursor.wordW = static_cast<int16_t>(renderer.getTextWidth(readerFontId, rawWord.c_str()));
+            
+            size_t ws = 0;
+            while (ws < rawWord.size() && !isalpha(static_cast<unsigned char>(rawWord[ws]))) ws++;
+            size_t we = rawWord.size();
+            while (we > ws && !isalpha(static_cast<unsigned char>(rawWord[we - 1]))) we--;
+            dictCursor.word = rawWord.substr(ws, we - ws);
+          }
+          break;
+        }
+        lineIdx++;
+      }
+
+      // Dictionary lookup when popup requested
+      if (dictCursor.valid && dictPopupVisible && dictDefinition[0] == '\0') {
+        if (!DICTIONARIES.getEntries().empty()) {
+          auto lookup = DICTIONARIES.lookup(dictCursor.word, true);
+          if (lookup.status == DictionaryLookupResult::Status::Found && !lookup.definition.empty()) {
+            strncpy(dictDefinition, lookup.definition.c_str(), sizeof(dictDefinition) - 1);
+            dictDefinition[sizeof(dictDefinition) - 1] = '\0';
+            strncpy(dictLookedUpWord, dictCursor.word.c_str(), sizeof(dictLookedUpWord) - 1);
+            dictLookedUpWord[sizeof(dictLookedUpWord) - 1] = '\0';
+          } else {
+            strncpy(dictDefinition, tr(STR_NO_DEFINITION), sizeof(dictDefinition) - 1);
+            dictDefinition[sizeof(dictDefinition) - 1] = '\0';
+          }
+        } else {
+          strncpy(dictDefinition, tr(STR_NO_DICTIONARIES), sizeof(dictDefinition) - 1);
+          dictDefinition[sizeof(dictDefinition) - 1] = '\0';
+        }
+      }
+
+      // Highlight mode: collect selected words
+      if (highlightModeActive) {
+        if (totalLines > 0 && highlightAnchorLineIdx >= totalLines) {
+          highlightAnchorLineIdx = totalLines - 1;
+        }
+        int selStartLine = highlightAnchorLineIdx;
+        int selStartWord = highlightAnchorWordIdx;
+        int selEndLine = dictCursorLineIdx;
+        int selEndWord = dictCursorWordIdx;
+
+        if (selEndLine < selStartLine ||
+            (selEndLine == selStartLine && selEndWord < selStartWord)) {
+          std::swap(selStartLine, selEndLine);
+          std::swap(selStartWord, selEndWord);
+        }
+
+        const int hlFontId = SETTINGS.getReaderFontId();
+        int li = 0;
+        for (const auto& el : page->elements) {
+          if (el->getTag() != TAG_PageLine) continue;
+          if (li > selEndLine) break;
+          if (li >= selStartLine) {
+            const auto* pl = static_cast<const PageLine*>(el.get());
+            if (pl->getBlock()) {
+              const auto& hlElWords = pl->getBlock()->getWords();
+              const auto& hlXpos = pl->getBlock()->getWordXpos();
+              const int numWords = static_cast<int>(hlElWords.size());
+              if (numWords > 0) {
+                const int wFirst = (li == selStartLine) ? std::min(selStartWord, numWords - 1) : 0;
+                const int wLast = (li == selEndLine) ? std::min(selEndWord, numWords - 1) : numWords - 1;
+
+                for (int wi = wFirst; wi <= wLast && hlWordCount < MAX_HL_WORDS; wi++) {
+                  HlWord& hw = hlWords[hlWordCount++];
+                  hw.x = static_cast<int16_t>(pl->xPos + orientedMarginLeft + hlXpos[wi]);
+                  hw.y = static_cast<int16_t>(pl->yPos + orientedMarginTop);
+                  const auto& rawW = hlElWords[wi];
+                  const int len = std::min(static_cast<int>(rawW.size()), static_cast<int>(sizeof(hw.text)) - 1);
+                  memcpy(hw.text, rawW.c_str(), len);
+                  hw.text[len] = '\0';
+                  hw.w = static_cast<int16_t>(renderer.getTextWidth(hlFontId, hw.text));
+                }
+              }
+            }
+          }
+          li++;
+        }
+      }
+    }
+
     const auto start = millis();
     renderContents(page, orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     LOG_DBG("ERS", "Rendered page in %dms", millis() - start);
+
+    // Dict mode overlay drawing: cursor, highlights, and dictionary popup
+    if (dictModeActive && dictCursor.valid) {
+      const int screenW = renderer.getScreenWidth();
+      const int screenH = renderer.getScreenHeight();
+      const int readerFontId = SETTINGS.getReaderFontId();
+
+      if (highlightModeActive && hlWordCount > 0) {
+        const int lineH = static_cast<int>(renderer.getLineHeight(readerFontId));
+        for (int i = 0; i < hlWordCount; i++) {
+          renderer.fillRect(hlWords[i].x, hlWords[i].y, hlWords[i].w, lineH, true);
+          renderer.drawText(readerFontId, hlWords[i].x, hlWords[i].y, hlWords[i].text, false);
+        }
+      } else if (!highlightModeActive) {
+        renderer.fillRect(dictCursor.x, dictCursor.y, dictCursor.wordW, dictCursor.lineH, true);
+        renderer.drawText(readerFontId, dictCursor.x, dictCursor.y, dictCursor.displayWord.c_str(), false);
+      }
+
+      if (!highlightModeActive && dictPopupVisible) {
+        constexpr int POPUP_PAD = 8;
+        constexpr int POPUP_MAX_LINES = 4;
+        const int lineH = renderer.getLineHeight(UI_12_FONT_ID) + 2;
+        const int popupH = POPUP_PAD * 2 + lineH * POPUP_MAX_LINES;
+        const int popupY = (dictCursor.y < screenH / 2) ? (screenH - popupH - 4) : 4;
+        renderer.fillRect(0, popupY, screenW, popupH, false);
+        renderer.drawRect(2, popupY + 2, screenW - 4, popupH - 4, true);
+        const char* defText = (dictDefinition[0] != '\0') ? dictDefinition : tr(STR_NO_DEFINITION);
+        constexpr int POPUP_WRAP_MAX = 20;
+        const auto allLines = renderer.wrappedText(UI_12_FONT_ID, defText, screenW - POPUP_PAD * 2, POPUP_WRAP_MAX);
+        const int totalDefLines = static_cast<int>(allLines.size());
+        dictPopupTotalLines = totalDefLines;
+        if (totalDefLines > 0) {
+          const int lastPageStart = ((totalDefLines - 1) / POPUP_MAX_LINES) * POPUP_MAX_LINES;
+          if (dictPopupScrollOffset > lastPageStart) {
+            dictPopupScrollOffset = lastPageStart;
+          }
+        } else {
+          dictPopupScrollOffset = 0;
+        }
+        int lineY = popupY + POPUP_PAD;
+        const int startLine = dictPopupScrollOffset;
+        const int endLine = std::min(startLine + POPUP_MAX_LINES, totalDefLines);
+        for (int i = startLine; i < endLine; i++) {
+          renderer.drawText(UI_12_FONT_ID, POPUP_PAD, lineY, allLines[i].c_str(), true);
+          lineY += lineH;
+        }
+      }
+      renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+    }
   }
   silentIndexNextChapterIfNeeded(viewportWidth, viewportHeight);
   saveProgress(currentSpineIndex, section->currentPage, section->pageCount);
@@ -1929,4 +2323,85 @@ void EpubReaderActivity::applyPendingSyncSession() {
 
   sync.clear();
   APP_STATE.saveToFile();
+}
+
+void EpubReaderActivity::saveHighlightToMyCLippings() {
+  if (!section || !epub) return;
+
+  auto p = section->loadPageFromSectionFile();
+  if (!p) return;
+
+  // Normalise selection bounds.
+  int selStartLine = highlightAnchorLineIdx;
+  int selStartWord = highlightAnchorWordIdx;
+  int selEndLine   = dictCursorLineIdx;
+  int selEndWord   = dictCursorWordIdx;
+  if (selEndLine < selStartLine ||
+      (selEndLine == selStartLine && selEndWord < selStartWord)) {
+    std::swap(selStartLine, selEndLine);
+    std::swap(selStartWord, selEndWord);
+  }
+
+  // Walk the page and concatenate selected words into a plain-text string.
+  std::string selectedText;
+  selectedText.reserve(256);
+  int li = 0;
+  bool prevHyphenated = false;
+  for (const auto& el : p->elements) {
+    if (el->getTag() != TAG_PageLine) continue;
+    if (li > selEndLine) break;
+    if (li >= selStartLine) {
+      const auto* pl = static_cast<const PageLine*>(el.get());
+      if (!pl->getBlock()) { li++; continue; }
+      const auto& words = pl->getBlock()->getWords();
+      const int numWords = static_cast<int>(words.size());
+      if (numWords == 0) { li++; continue; }
+
+      const int wFirst = (li == selStartLine) ? std::min(selStartWord, numWords - 1) : 0;
+      const int wLast  = (li == selEndLine)   ? std::min(selEndWord,   numWords - 1) : numWords - 1;
+
+      for (int wi = wFirst; wi <= wLast; wi++) {
+        const std::string& w = words[wi];
+        if (!selectedText.empty() && !prevHyphenated) selectedText += ' ';
+        prevHyphenated = false;
+        if (wi == numWords - 1 && li < selEndLine && !w.empty() && w.back() == '-') {
+          selectedText += w.substr(0, w.size() - 1);
+          prevHyphenated = true;
+        } else {
+          selectedText += w;
+        }
+      }
+    }
+    li++;
+  }
+
+  if (selectedText.empty()) return;
+
+  float bookProgress = 0.0f;
+  if (epub->getBookSize() > 0 && section->pageCount > 0) {
+    const float chapterProgress =
+        static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+    bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
+  }
+  const int progressPercent = std::clamp(static_cast<int>(bookProgress + 0.5f), 0, 100);
+
+  // Append a Kindle-style clipping entry to /MyClippings.txt.
+  FsFile file = Storage.open("/MyClippings.txt", O_WRITE | O_CREAT | O_APPEND);
+  if (!file) {
+    LOG_ERR("ERS", "saveHighlight: failed to open /MyClippings.txt");
+    return;
+  }
+  std::string meta = "- Your Highlight | Location: " + std::to_string(progressPercent) + "%\n\n";
+  const std::string entry = std::string("==========\n") +
+                            epub->getTitle() + " (" + epub->getAuthor() + ")\n" +
+                            meta +
+                            selectedText + "\n\n";
+  file.write(entry.c_str(), entry.size());
+  file.close();
+
+  LOG_DBG("ERS", "Highlight saved: %d chars at %d%%", static_cast<int>(selectedText.size()), progressPercent);
+
+  GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_SAVED));
+  renderer.displayBuffer();
+  delay(500);
 }

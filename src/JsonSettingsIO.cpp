@@ -512,6 +512,10 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
       clamp(doc["bookmarksShortcut"] | s.bookmarksShortcut, shortcutLocationCount, s.bookmarksShortcut);
   s.bookmarksShortcutOrder =
       clamp(doc["bookmarksShortcutOrder"] | s.bookmarksShortcutOrder, shortcutOrderCount, s.bookmarksShortcutOrder);
+  s.myClippingsShortcut =
+      clamp(doc["myClippingsShortcut"] | s.myClippingsShortcut, shortcutLocationCount, s.myClippingsShortcut);
+  s.myClippingsShortcutOrder =
+      clamp(doc["myClippingsShortcutOrder"] | s.myClippingsShortcutOrder, shortcutOrderCount, s.myClippingsShortcutOrder);
   s.favoritesShortcut =
       clamp(doc["favoritesShortcut"] | s.favoritesShortcut, shortcutLocationCount, s.favoritesShortcut);
   s.favoritesShortcutOrder =
@@ -564,6 +568,8 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
                                        static_cast<uint8_t>(2), s.recentBooksShortcutVisible);
   s.bookmarksShortcutVisible = clamp(doc["bookmarksShortcutVisible"] | s.bookmarksShortcutVisible,
                                      static_cast<uint8_t>(2), s.bookmarksShortcutVisible);
+  s.myClippingsShortcutVisible = clamp(doc["myClippingsShortcutVisible"] | s.myClippingsShortcutVisible,
+                                     static_cast<uint8_t>(2), s.myClippingsShortcutVisible);
   s.favoritesShortcutVisible = clamp(doc["favoritesShortcutVisible"] | s.favoritesShortcutVisible,
                                      static_cast<uint8_t>(2), s.favoritesShortcutVisible);
   s.flashcardsShortcutVisible = clamp(doc["flashcardsShortcutVisible"] | s.flashcardsShortcutVisible,
@@ -821,6 +827,8 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   doc["recentBooksShortcutOrder"] = s.recentBooksShortcutOrder;
   doc["bookmarksShortcut"] = s.bookmarksShortcut;
   doc["bookmarksShortcutOrder"] = s.bookmarksShortcutOrder;
+  doc["myClippingsShortcut"] = s.myClippingsShortcut;
+  doc["myClippingsShortcutOrder"] = s.myClippingsShortcutOrder;
   doc["favoritesShortcut"] = s.favoritesShortcut;
   doc["favoritesShortcutOrder"] = s.favoritesShortcutOrder;
   doc["flashcardsShortcut"] = s.flashcardsShortcut;
@@ -846,6 +854,7 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   doc["readMeShortcutVisible"] = s.readMeShortcutVisible;
   doc["recentBooksShortcutVisible"] = s.recentBooksShortcutVisible;
   doc["bookmarksShortcutVisible"] = s.bookmarksShortcutVisible;
+  doc["myClippingsShortcutVisible"] = s.myClippingsShortcutVisible;
   doc["favoritesShortcutVisible"] = s.favoritesShortcutVisible;
   doc["flashcardsShortcutVisible"] = s.flashcardsShortcutVisible;
   doc["dictionaryShortcutVisible"] = s.dictionaryShortcutVisible;
@@ -1034,6 +1043,10 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
       clamp(doc["bookmarksShortcut"] | s.bookmarksShortcut, shortcutLocationCount, s.bookmarksShortcut);
   s.bookmarksShortcutOrder =
       clamp(doc["bookmarksShortcutOrder"] | s.bookmarksShortcutOrder, shortcutOrderCount, s.bookmarksShortcutOrder);
+  s.myClippingsShortcut =
+      clamp(doc["myClippingsShortcut"] | s.myClippingsShortcut, shortcutLocationCount, s.myClippingsShortcut);
+  s.myClippingsShortcutOrder =
+      clamp(doc["myClippingsShortcutOrder"] | s.myClippingsShortcutOrder, shortcutOrderCount, s.myClippingsShortcutOrder);
   s.favoritesShortcut =
       clamp(doc["favoritesShortcut"] | s.favoritesShortcut, shortcutLocationCount, s.favoritesShortcut);
   s.favoritesShortcutOrder =
@@ -1082,6 +1095,8 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
                                        static_cast<uint8_t>(2), s.recentBooksShortcutVisible);
   s.bookmarksShortcutVisible = clamp(doc["bookmarksShortcutVisible"] | s.bookmarksShortcutVisible,
                                      static_cast<uint8_t>(2), s.bookmarksShortcutVisible);
+  s.myClippingsShortcutVisible = clamp(doc["myClippingsShortcutVisible"] | s.myClippingsShortcutVisible,
+                                     static_cast<uint8_t>(2), s.myClippingsShortcutVisible);
   s.favoritesShortcutVisible = clamp(doc["favoritesShortcutVisible"] | s.favoritesShortcutVisible,
                                      static_cast<uint8_t>(2), s.favoritesShortcutVisible);
   s.flashcardsShortcutVisible = clamp(doc["flashcardsShortcutVisible"] | s.flashcardsShortcutVisible,
