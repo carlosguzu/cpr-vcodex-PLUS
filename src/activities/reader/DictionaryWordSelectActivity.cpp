@@ -15,6 +15,7 @@
 #include "DictionaryDefinitionActivity.h"
 #include "DictionaryStore.h"
 #include "DictionarySuggestionsActivity.h"
+#include "EpubReaderMenuActivity.h"
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -398,13 +399,9 @@ void DictionaryWordSelectActivity::lookupSelectedWord() {
     startActivityForResult(std::make_unique<DictionaryDefinitionActivity>(
                                renderer, mappedInput, page, lookup.headword, lookup.definition, lookup.truncated,
                                readerFontId, DICTIONARIES.getDefinitionFontId(readerFontId), marginLeft, marginTop),
-                           [this](const ActivityResult& result) {
-                             if (!result.isCancelled) {
-                               setResult(ActivityResult{});
-                               finish();
-                               return;
-                             }
-                             requestUpdate();
+                           [this](const ActivityResult&) {
+                             setResult(ActivityResult{});
+                             finish();
                            });
     return;
   }
@@ -413,13 +410,9 @@ void DictionaryWordSelectActivity::lookupSelectedWord() {
     startActivityForResult(std::make_unique<DictionarySuggestionsActivity>(
                                renderer, mappedInput, page, query, lookup.suggestions, readerFontId, marginLeft,
                                marginTop),
-                           [this](const ActivityResult& result) {
-                             if (!result.isCancelled) {
-                               setResult(ActivityResult{});
-                               finish();
-                               return;
-                             }
-                             requestUpdate();
+                           [this](const ActivityResult&) {
+                             setResult(ActivityResult{});
+                             finish();
                            });
     return;
   }
@@ -428,10 +421,16 @@ void DictionaryWordSelectActivity::lookupSelectedWord() {
                                                                                         : tr(STR_DEFINITION_NOT_FOUND));
   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
   delay(900);
-  requestUpdate();
+  setResult(ActivityResult{});
+  finish();
 }
 
 void DictionaryWordSelectActivity::loop() {
+  if (mappedInput.wasReleased(MappedInputManager::Button::Power)) {
+    setResult(MenuResult{static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE)});
+    finish();
+    return;
+  }
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     ActivityResult result;
     result.isCancelled = true;

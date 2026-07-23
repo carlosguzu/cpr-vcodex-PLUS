@@ -341,29 +341,65 @@ void EpubReaderActivity::loop() {
   // Dictionary / Clipping mode: power button cycles (Dict Mode -> Clipping Selection -> Save Highlight)
   if (SETTINGS.shortPwrBtn == CrossPointSettings::DICT_MODE &&
       mappedInput.wasReleased(MappedInputManager::Button::Power)) {
-    if (!dictModeActive) {
-      dictModeActive = true;
-      highlightModeActive = false;
-      dictCursorLineIdx = 0;
-      dictCursorWordIdx = 0;
-      dictDefinition[0] = '\0';
-      dictPopupVisible = false;
-      dictActiveDictIdx = 0;
-      dictPopupScrollOffset = 0;
+    if (dictModeActive) {
+      if (!highlightModeActive) {
+        highlightModeActive = true;
+        highlightAnchorLineIdx = dictCursorLineIdx;
+        highlightAnchorWordIdx = dictCursorWordIdx;
+      } else {
+        saveHighlightToMyCLippings();
+        GUI.drawPopup(renderer, tr(STR_MY_CLIPPINGS));
+        renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+        delay(500);
+        dictModeActive = false;
+        highlightModeActive = false;
+        menuClippingActive = false;
+      }
+      ReaderUtils::requestReaderUiTransitionRefresh(renderer);
+      requestUpdate(true);
+      return;
+    }
+
+    int overlayMarginLeft = 0;
+    int overlayMarginTop = 0;
+    auto page = loadCurrentPageForOverlay(overlayMarginLeft, overlayMarginTop);
+    if (page) {
       if (DICTIONARIES.getEntries().empty()) {
         DICTIONARIES.scan();
         DICTIONARIES.loadConfig();
       }
-    } else if (!highlightModeActive) {
-      highlightModeActive = true;
-      highlightAnchorLineIdx = dictCursorLineIdx;
-      highlightAnchorWordIdx = dictCursorWordIdx;
-    } else {
-      saveHighlightToMyCLippings();
-      dictModeActive = false;
-      highlightModeActive = false;
+      READING_STATS.noteActivity();
+      startActivityForResult(
+          std::make_unique<DictionaryWordSelectActivity>(
+              renderer, mappedInput, page, SETTINGS.getReaderFontId(), overlayMarginLeft, overlayMarginTop),
+          [this](const ActivityResult& result) {
+            READING_STATS.resumeSession();
+            ReaderUtils::requestReaderUiTransitionRefresh(renderer);
+            if (std::holds_alternative<MenuResult>(result.data)) {
+              const auto& menuRes = std::get<MenuResult>(result.data);
+              if (menuRes.action == static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE)) {
+                dictModeActive = true;
+                highlightModeActive = false;
+                menuClippingActive = true;
+                dictCursorLineIdx = 0;
+                dictCursorWordIdx = 0;
+                dictDefinition[0] = '\0';
+                dictPopupVisible = false;
+                GUI.drawPopup(renderer, tr(STR_CLIPPING_MODE));
+                renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+                delay(500);
+                requestUpdate(true);
+                return;
+              }
+            }
+            dictModeActive = false;
+            highlightModeActive = false;
+            menuClippingActive = false;
+            dictPopupVisible = false;
+            dictDefinition[0] = '\0';
+            requestUpdate(true);
+          });
     }
-    requestUpdate();
     return;
   }
 
@@ -1065,10 +1101,32 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       startActivityForResult(std::make_unique<DictionaryWordSelectActivity>(
                                  renderer, mappedInput, page, SETTINGS.getReaderFontId(), overlayMarginLeft,
                                  overlayMarginTop),
-                             [this](const ActivityResult&) {
+                             [this](const ActivityResult& result) {
                                READING_STATS.resumeSession();
                                ReaderUtils::requestReaderUiTransitionRefresh(renderer);
-                               requestUpdate();
+                               if (std::holds_alternative<MenuResult>(result.data)) {
+                                 const auto& menuRes = std::get<MenuResult>(result.data);
+                                 if (menuRes.action == static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE)) {
+                                   dictModeActive = true;
+                                   highlightModeActive = false;
+                                   menuClippingActive = true;
+                                   dictCursorLineIdx = 0;
+                                   dictCursorWordIdx = 0;
+                                   dictDefinition[0] = '\0';
+                                   dictPopupVisible = false;
+                                   GUI.drawPopup(renderer, tr(STR_CLIPPING_MODE));
+                                   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+                                   delay(500);
+                                   requestUpdate(true);
+                                   return;
+                                 }
+                               }
+                               dictModeActive = false;
+                               highlightModeActive = false;
+                               menuClippingActive = false;
+                               dictPopupVisible = false;
+                               dictDefinition[0] = '\0';
+                               requestUpdate(true);
                              });
       break;
     }
