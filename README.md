@@ -27,19 +27,11 @@ Here is a visual demonstration of the passcode protection capability:
 
 The Clippings feature allows you to highlight and save your favorite passages from books, view them in a dedicated manager, and jump directly back to the exact page.
 
-### Capabilities:
-- **Interactive Cursor Clipping**: Access "Clip/highlight" in the reader menu or via side-button holds. The cursor starts in dictionary-style navigation mode, allowing you to move to your desired start word. Pressing the `Confirm` button anchors the selection, transitioning into word-by-word highlighting. Pressing `Confirm` again saves the highlight.
-- **Export to SD Card**: Clippings are appended to `/MyClippings.txt` on your SD card root in a standard Kindle-like format:
-  ```text
-  Book Title (Author)
-  - Your Highlight | Location: 45%
-
-  This is the passage of text you highlighted...
-  ==========
-  ```
-- **"My Clippings" App**: Access all your clippings via the global `Apps > My Clippings` app or home shortcut. Clippings are organized by book title, listing locations and texts.
-- **Precise Location Jumping**: In the detail view of "My Clippings" (whether opened from within the reader or via the Apps/Home menus), pressing `Select` will automatically open the book. It uses a **precise text-based substring matching algorithm** that scans the pages of the target chapter to find the exact page containing the passage, rather than falling on an approximate percentage.
-- **Blinking Highlight Animation**: When you jump to a clipping, the reader highlights the matching text on the page with a solid inverted block (white text on a black background) for exactly **1 second**, blinking it to draw your attention directly to the passage before restoring the clean page.
+This feature is based on the clipping ideas from the community 0.30 release fork (which you can find at [omer-faruq-xteink/cpr-vcodex](https://github.com/omer-faruq-xteink/cpr-vcodex/releases)), but rebuilt with major improvements, fixes, and new features:
+- **Precise Location Jumping**: Replaced the approximate percentage-based jump with a precise text-based substring matching algorithm that scans the pages of the target chapter to find the exact page containing the passage.
+- **Blinking Highlight Animation**: Added a temporary 1-second blinking highlight animation to quickly draw your attention to the clipped text upon jump, which then disappears to leave a clean page.
+- **Improved Cursor Navigation**: Setting "Clip/highlight" in the reader menu starts standard dictionary-style word navigation. Hitting `Confirm` on a word anchors the selection, enabling word-by-word highlight selection from that point onwards.
+- **Apps & Home Menu Select Shortcuts**: Enabled shortcut keys and "Select" buttons in both the My Clippings app and the Home/Apps managers to seamlessly open the reader and jump straight to the clipping.
 
 Here is a visual demonstration of the clippings capability:
 
@@ -715,13 +707,11 @@ python scripts/pre_release_check.py --tag 1.3.0.35-cpr-vcodex
 
 Huge credit goes to:
 
-- The **CrossPoint Reader** project for the upstream base.
-- The **CPR-vCodex** project for the rich analytics and achievements fork base.
-- **CarlosG / SR** (author of the 1.3.0.30.1 fork at `/home/carlosg/Downloads/cpr-vcodex-1.3.0.30.1-cpr-vcodex`) from which the initial dictionary-highlight clipping idea was adapted. We expanded this concept significantly by adding precise substring page jumps, temporary blinking highlight animations, and full shortcut select integrations.
-- The Xteink X4 community around the firmware ecosystem.
-- [zgredex](https://github.com/zgredex) for the original `Lyra Carousel` Home theme.
-- [erickosanchezj](https://github.com/erickosanchezj) for adapting `Lyra Carousel` to CPR-vCodex.
-- Which-Estimate4566 for the logo artwork used in the docs.
+- the **CrossPoint Reader** project for the upstream base
+- the Xteink X4 community around the firmware ecosystem
+- [zgredex](https://github.com/zgredex) for the original `Lyra Carousel` Home theme
+- [erickosanchezj](https://github.com/erickosanchezj) for adapting `Lyra Carousel` to CPR-vCodex
+- Which-Estimate4566 for the logo artwork used in the docs
 
 ---
 
