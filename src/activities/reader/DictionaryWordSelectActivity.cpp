@@ -31,10 +31,38 @@ void DictionaryWordSelectActivity::onEnter() {
   invalidateSelectionRegionCache();
   extractWords();
   mergeHyphenatedWords();
-  if (!rows.empty()) {
-    currentRow = 0;
-    currentWordInRow = 0;
+
+  currentRow = 0;
+  currentWordInRow = 0;
+
+  if (initialLineIdx >= 0 && initialWordIdx >= 0 && (initialLineIdx > 0 || initialWordIdx > 0)) {
+    for (size_t i = 0; i < words.size(); ++i) {
+      if (words[i].lineIdx == initialLineIdx && words[i].wordIdx == initialWordIdx) {
+        currentRow = words[i].row;
+        for (size_t wi = 0; wi < rows[currentRow].wordIndices.size(); ++wi) {
+          if (rows[currentRow].wordIndices[wi] == static_cast<int>(i)) {
+            currentWordInRow = static_cast<int>(wi);
+            break;
+          }
+        }
+        break;
+      }
+    }
   }
+
+  if (!rows.empty() && currentRow >= 0 && currentRow < static_cast<int>(rows.size()) &&
+      currentWordInRow >= 0 && currentWordInRow < static_cast<int>(rows[currentRow].wordIndices.size())) {
+    anchorWordIndex = rows[currentRow].wordIndices[currentWordInRow];
+  } else {
+    anchorWordIndex = 0;
+  }
+
+  if (isHighlightMode) {
+    GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_MODE));
+    renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+    delay(500);
+  }
+
   requestUpdate();
 }
 
@@ -239,9 +267,11 @@ size_t DictionaryWordSelectActivity::collectSelectionRects(SelectionRect* rects,
     return 0;
   }
 
+  const int currentWordIdx = rows[currentRow].wordIndices[currentWordInRow];
+  const int lineHeight = renderer.getLineHeight(readerFontId);
+
   auto addRect = [&](const WordInfo& selectedWord, size_t& count) {
     if (count >= maxRects) return;
-    const int lineHeight = renderer.getLineHeight(readerFontId);
     rects[count++] = SelectionRect{selectedWord.screenX - HIGHLIGHT_PADDING_X,
                                    selectedWord.screenY - HIGHLIGHT_PADDING_Y,
                                    selectedWord.width + HIGHLIGHT_PADDING_X * 2,
@@ -249,15 +279,29 @@ size_t DictionaryWordSelectActivity::collectSelectionRects(SelectionRect* rects,
   };
 
   size_t count = 0;
-  const int wordIndex = rows[currentRow].wordIndices[currentWordInRow];
-  addRect(words[wordIndex], count);
-
-  const int linkedIndex = words[wordIndex].continuationOf >= 0 ? words[wordIndex].continuationOf
-                                                               : words[wordIndex].continuationIndex;
-  if (linkedIndex >= 0 && linkedIndex != wordIndex && linkedIndex < static_cast<int>(words.size())) {
-    addRect(words[linkedIndex], count);
+  if (!isHighlightMode) {
+    addRect(words[currentWordIdx], count);
+    const int linkedIndex = words[currentWordIdx].continuationOf >= 0 ? words[currentWordIdx].continuationOf
+                                                                      : words[currentWordIdx].continuationIndex;
+    if (linkedIndex >= 0 && linkedIndex != currentWordIdx && linkedIndex < static_cast<int>(words.size())) {
+      addRect(words[linkedIndex], count);
+    }
+  } else {
+    int startIdx = std::min(anchorWordIndex, currentWordIdx);
+    int endIdx = std::max(anchorWordIndex, currentWordIdx);
+    startIdx = std::clamp(startIdx, 0, static_cast<int>(words.size()) - 1);
+    endIdx = std::clamp(endIdx, 0, static_cast<int>(words.size()) - 1);
+    int lastY = -999;
+    for (int i = startIdx; i <= endIdx && count < maxRects; ++i) {
+      if (std::abs(words[i].screenY - lastY) > 2) {
+        addRect(words[i], count);
+        lastY = words[i].screenY;
+      } else if (count > 0) {
+        const int newRight = words[i].screenX + words[i].width + HIGHLIGHT_PADDING_X;
+        rects[count - 1].width = std::max<int>(rects[count - 1].width, newRight - rects[count - 1].x);
+      }
+    }
   }
-
   return count;
 }
 
@@ -340,22 +384,31 @@ void DictionaryWordSelectActivity::drawSelectionHighlight() {
     return;
   }
 
-  const int wordIndex = rows[currentRow].wordIndices[currentWordInRow];
-  const auto& word = words[wordIndex];
+  const int currentWordIdx = rows[currentRow].wordIndices[currentWordInRow];
   const int lineHeight = renderer.getLineHeight(readerFontId);
 
-  auto drawSelectedWord = [&](const WordInfo& selectedWord) {
+  auto drawWordRect = [&](const WordInfo& selectedWord) {
     renderer.fillRoundedRect(selectedWord.screenX - HIGHLIGHT_PADDING_X, selectedWord.screenY - HIGHLIGHT_PADDING_Y,
                              selectedWord.width + HIGHLIGHT_PADDING_X * 2, lineHeight + HIGHLIGHT_PADDING_Y * 2,
                              HIGHLIGHT_RADIUS, Color::Black);
     renderer.drawText(readerFontId, selectedWord.screenX, selectedWord.screenY, selectedWord.text.c_str(), false);
   };
 
-  drawSelectedWord(word);
-
-  const int linkedIndex = word.continuationOf >= 0 ? word.continuationOf : word.continuationIndex;
-  if (linkedIndex >= 0 && linkedIndex != wordIndex && linkedIndex < static_cast<int>(words.size())) {
-    drawSelectedWord(words[linkedIndex]);
+  if (!isHighlightMode) {
+    const auto& word = words[currentWordIdx];
+    drawWordRect(word);
+    const int linkedIndex = word.continuationOf >= 0 ? word.continuationOf : word.continuationIndex;
+    if (linkedIndex >= 0 && linkedIndex != currentWordIdx && linkedIndex < static_cast<int>(words.size())) {
+      drawWordRect(words[linkedIndex]);
+    }
+  } else {
+    int startIdx = std::min(anchorWordIndex, currentWordIdx);
+    int endIdx = std::max(anchorWordIndex, currentWordIdx);
+    startIdx = std::clamp(startIdx, 0, static_cast<int>(words.size()) - 1);
+    endIdx = std::clamp(endIdx, 0, static_cast<int>(words.size()) - 1);
+    for (int i = startIdx; i <= endIdx; ++i) {
+      drawWordRect(words[i]);
+    }
   }
 }
 
@@ -427,21 +480,70 @@ void DictionaryWordSelectActivity::lookupSelectedWord() {
   finish();
 }
 
-void DictionaryWordSelectActivity::loop() {
-  if (mappedInput.wasReleased(MappedInputManager::Button::Power)) {
-    int selLineIdx = 0;
-    int selWordIdx = 0;
-    if (!rows.empty() && currentRow >= 0 && currentRow < static_cast<int>(rows.size()) &&
-        currentWordInRow >= 0 && currentWordInRow < static_cast<int>(rows[currentRow].wordIndices.size())) {
-      const int wIdx = rows[currentRow].wordIndices[currentWordInRow];
-      selLineIdx = words[wIdx].lineIdx;
-      selWordIdx = words[wIdx].wordIdx;
-    }
-    setResult(MenuResult{static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE),
-                         static_cast<uint8_t>(selLineIdx), static_cast<uint8_t>(selWordIdx)});
+void DictionaryWordSelectActivity::saveHighlightClipping() {
+  if (words.empty()) {
+    setResult(ActivityResult{});
     finish();
     return;
   }
+  int currentWordIdx = 0;
+  if (!rows.empty() && currentRow >= 0 && currentRow < static_cast<int>(rows.size()) &&
+      currentWordInRow >= 0 && currentWordInRow < static_cast<int>(rows[currentRow].wordIndices.size())) {
+    currentWordIdx = rows[currentRow].wordIndices[currentWordInRow];
+  }
+
+  int startIdx = std::min(anchorWordIndex, currentWordIdx);
+  int endIdx = std::max(anchorWordIndex, currentWordIdx);
+  startIdx = std::clamp(startIdx, 0, static_cast<int>(words.size()) - 1);
+  endIdx = std::clamp(endIdx, 0, static_cast<int>(words.size()) - 1);
+
+  std::string selectedText;
+  selectedText.reserve(256);
+  for (int i = startIdx; i <= endIdx; ++i) {
+    if (!selectedText.empty()) selectedText += ' ';
+    selectedText += words[i].text;
+  }
+
+  if (!selectedText.empty()) {
+    FsFile file = Storage.open("/MyClippings.txt", O_WRITE | O_CREAT | O_APPEND);
+    if (file) {
+      std::string title = bookTitle.empty() ? "Book" : bookTitle;
+      std::string author = bookAuthor.empty() ? "" : bookAuthor;
+      std::string meta = "- Your Highlight | Location: " + std::to_string(progressPercent) + "%\n\n";
+      std::string entry = std::string("==========\n") + title;
+      if (!author.empty()) entry += " (" + author + ")";
+      entry += "\n" + meta + selectedText + "\n\n";
+      file.write(entry.c_str(), entry.size());
+      file.close();
+    }
+  }
+
+  GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_SAVED));
+  renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+  delay(500);
+  setResult(ActivityResult{});
+  finish();
+}
+
+void DictionaryWordSelectActivity::loop() {
+  if (mappedInput.wasReleased(MappedInputManager::Button::Power)) {
+    if (!isHighlightMode) {
+      isHighlightMode = true;
+      if (!rows.empty() && currentRow >= 0 && currentRow < static_cast<int>(rows.size()) &&
+          currentWordInRow >= 0 && currentWordInRow < static_cast<int>(rows[currentRow].wordIndices.size())) {
+        anchorWordIndex = rows[currentRow].wordIndices[currentWordInRow];
+      }
+      GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_MODE));
+      renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+      delay(500);
+      requestUpdate();
+      return;
+    } else {
+      saveHighlightClipping();
+      return;
+    }
+  }
+
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     ActivityResult result;
     result.isCancelled = true;
@@ -449,8 +551,13 @@ void DictionaryWordSelectActivity::loop() {
     finish();
     return;
   }
+
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    lookupSelectedWord();
+    if (isHighlightMode) {
+      saveHighlightClipping();
+    } else {
+      lookupSelectedWord();
+    }
     return;
   }
 

@@ -13,12 +13,20 @@
 class DictionaryWordSelectActivity final : public Activity {
  public:
   DictionaryWordSelectActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::shared_ptr<Page> page,
-                               int readerFontId, int marginLeft, int marginTop)
+                               int readerFontId, int marginLeft, int marginTop,
+                               bool isHighlightMode = false, int initialLineIdx = 0, int initialWordIdx = 0,
+                               std::string bookTitle = "", std::string bookAuthor = "", int progressPercent = 0)
       : Activity("DictionaryWordSelect", renderer, mappedInput),
         page(std::move(page)),
         readerFontId(readerFontId),
         marginLeft(marginLeft),
-        marginTop(marginTop) {}
+        marginTop(marginTop),
+        isHighlightMode(isHighlightMode),
+        initialLineIdx(initialLineIdx),
+        initialWordIdx(initialWordIdx),
+        bookTitle(std::move(bookTitle)),
+        bookAuthor(std::move(bookAuthor)),
+        progressPercent(progressPercent) {}
 
   void onEnter() override;
   void onExit() override;
@@ -60,12 +68,20 @@ class DictionaryWordSelectActivity final : public Activity {
     bool stored = false;
   };
 
-  static constexpr size_t MAX_SELECTION_REGIONS = 2;
+  static constexpr size_t MAX_SELECTION_REGIONS = 16;
 
   std::shared_ptr<Page> page;
   int readerFontId = 0;
   int marginLeft = 0;
   int marginTop = 0;
+  bool isHighlightMode = false;
+  int initialLineIdx = 0;
+  int initialWordIdx = 0;
+  std::string bookTitle;
+  std::string bookAuthor;
+  int progressPercent = 0;
+  int anchorWordIndex = 0;
+
   std::vector<WordInfo> words;
   std::vector<Row> rows;
   int currentRow = 0;
@@ -80,6 +96,7 @@ class DictionaryWordSelectActivity final : public Activity {
   void moveRow(int delta);
   void moveWord(int delta);
   void lookupSelectedWord();
+  void saveHighlightClipping();
   void updateSelectionHighlight();
   bool redrawSelectionFast();
   void prewarmCurrentSelectionText() const;

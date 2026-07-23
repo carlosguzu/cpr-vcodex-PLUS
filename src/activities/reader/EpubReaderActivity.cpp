@@ -341,25 +341,6 @@ void EpubReaderActivity::loop() {
   // Dictionary / Clipping mode: power button cycles (Dict Mode -> Clipping Selection -> Save Highlight)
   if (SETTINGS.shortPwrBtn == CrossPointSettings::DICT_MODE &&
       mappedInput.wasReleased(MappedInputManager::Button::Power)) {
-    if (dictModeActive) {
-      if (!highlightModeActive) {
-        highlightModeActive = true;
-        highlightAnchorLineIdx = dictCursorLineIdx;
-        highlightAnchorWordIdx = dictCursorWordIdx;
-      } else {
-        saveHighlightToMyCLippings();
-        GUI.drawPopup(renderer, tr(STR_MY_CLIPPINGS));
-        renderer.displayBuffer(HalDisplay::FAST_REFRESH);
-        delay(500);
-        dictModeActive = false;
-        highlightModeActive = false;
-        menuClippingActive = false;
-      }
-      ReaderUtils::requestReaderUiTransitionRefresh(renderer);
-      requestUpdate(true);
-      return;
-    }
-
     int overlayMarginLeft = 0;
     int overlayMarginTop = 0;
     auto page = loadCurrentPageForOverlay(overlayMarginLeft, overlayMarginTop);
@@ -369,30 +350,18 @@ void EpubReaderActivity::loop() {
         DICTIONARIES.loadConfig();
       }
       READING_STATS.noteActivity();
+      float bookProgress = 0.0f;
+      if (epub && epub->getBookSize() > 0 && section && section->pageCount > 0) {
+        const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+        bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
+      }
+      const int pct = clampPercent(static_cast<int>(bookProgress + 0.5f));
       startActivityForResult(
           std::make_unique<DictionaryWordSelectActivity>(
-              renderer, mappedInput, page, SETTINGS.getReaderFontId(), overlayMarginLeft, overlayMarginTop),
-          [this](const ActivityResult& result) {
+              renderer, mappedInput, page, SETTINGS.getReaderFontId(), overlayMarginLeft, overlayMarginTop,
+              false, 0, 0, epub ? epub->getTitle() : "", epub ? epub->getAuthor() : "", pct),
+          [this](const ActivityResult&) {
             READING_STATS.resumeSession();
-            if (std::holds_alternative<MenuResult>(result.data)) {
-              const auto& menuRes = std::get<MenuResult>(result.data);
-              if (menuRes.action == static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE)) {
-                dictModeActive = true;
-                highlightModeActive = true;
-                menuClippingActive = true;
-                dictCursorLineIdx = menuRes.orientation;
-                dictCursorWordIdx = menuRes.pageTurnOption;
-                highlightAnchorLineIdx = menuRes.orientation;
-                highlightAnchorWordIdx = menuRes.pageTurnOption;
-                dictDefinition[0] = '\0';
-                dictPopupVisible = false;
-                GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_MODE));
-                renderer.displayBuffer(HalDisplay::FAST_REFRESH);
-                delay(500);
-                requestUpdate(false);
-                return;
-              }
-            }
             ReaderUtils::requestReaderUiTransitionRefresh(renderer);
             dictModeActive = false;
             highlightModeActive = false;
@@ -1100,38 +1069,26 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
         break;
       }
       READING_STATS.noteActivity();
-      startActivityForResult(std::make_unique<DictionaryWordSelectActivity>(
-                                 renderer, mappedInput, page, SETTINGS.getReaderFontId(), overlayMarginLeft,
-                                 overlayMarginTop),
-                             [this](const ActivityResult& result) {
-                               READING_STATS.resumeSession();
-                               if (std::holds_alternative<MenuResult>(result.data)) {
-                                 const auto& menuRes = std::get<MenuResult>(result.data);
-                                 if (menuRes.action == static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE)) {
-                                   dictModeActive = true;
-                                   highlightModeActive = true;
-                                   menuClippingActive = true;
-                                   dictCursorLineIdx = menuRes.orientation;
-                                   dictCursorWordIdx = menuRes.pageTurnOption;
-                                   highlightAnchorLineIdx = menuRes.orientation;
-                                   highlightAnchorWordIdx = menuRes.pageTurnOption;
-                                   dictDefinition[0] = '\0';
-                                   dictPopupVisible = false;
-                                   GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_MODE));
-                                   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
-                                   delay(500);
-                                   requestUpdate(false);
-                                   return;
-                                 }
-                               }
-                               ReaderUtils::requestReaderUiTransitionRefresh(renderer);
-                               dictModeActive = false;
-                               highlightModeActive = false;
-                               menuClippingActive = false;
-                               dictPopupVisible = false;
-                               dictDefinition[0] = '\0';
-                               requestUpdate(true);
-                             });
+      float bookProgress = 0.0f;
+      if (epub && epub->getBookSize() > 0 && section && section->pageCount > 0) {
+        const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+        bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
+      }
+      const int pct = clampPercent(static_cast<int>(bookProgress + 0.5f));
+      startActivityForResult(
+          std::make_unique<DictionaryWordSelectActivity>(
+              renderer, mappedInput, page, SETTINGS.getReaderFontId(), overlayMarginLeft, overlayMarginTop,
+              false, 0, 0, epub ? epub->getTitle() : "", epub ? epub->getAuthor() : "", pct),
+          [this](const ActivityResult&) {
+            READING_STATS.resumeSession();
+            ReaderUtils::requestReaderUiTransitionRefresh(renderer);
+            dictModeActive = false;
+            highlightModeActive = false;
+            menuClippingActive = false;
+            dictPopupVisible = false;
+            dictDefinition[0] = '\0';
+            requestUpdate(true);
+          });
       break;
     }
     case EpubReaderMenuActivity::MenuAction::LOOKUP_HISTORY: {
@@ -1216,19 +1173,34 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       break;
     }
     case EpubReaderMenuActivity::MenuAction::CLIPPING_MODE: {
-      dictModeActive = true;
-      highlightModeActive = true;
-      menuClippingActive = true;
-      dictCursorLineIdx = 0;
-      dictCursorWordIdx = 0;
-      highlightAnchorLineIdx = 0;
-      highlightAnchorWordIdx = 0;
-      dictDefinition[0] = '\0';
-      dictPopupVisible = false;
-      GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_MODE));
-      renderer.displayBuffer(HalDisplay::FAST_REFRESH);
-      delay(500);
-      requestUpdate(true);
+      int overlayMarginLeft = 0;
+      int overlayMarginTop = 0;
+      auto page = loadCurrentPageForOverlay(overlayMarginLeft, overlayMarginTop);
+      if (!page) {
+        requestUpdate();
+        break;
+      }
+      READING_STATS.noteActivity();
+      float bookProgress = 0.0f;
+      if (epub && epub->getBookSize() > 0 && section && section->pageCount > 0) {
+        const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+        bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
+      }
+      const int pct = clampPercent(static_cast<int>(bookProgress + 0.5f));
+      startActivityForResult(
+          std::make_unique<DictionaryWordSelectActivity>(
+              renderer, mappedInput, page, SETTINGS.getReaderFontId(), overlayMarginLeft, overlayMarginTop,
+              true, 0, 0, epub ? epub->getTitle() : "", epub ? epub->getAuthor() : "", pct),
+          [this](const ActivityResult&) {
+            READING_STATS.resumeSession();
+            ReaderUtils::requestReaderUiTransitionRefresh(renderer);
+            dictModeActive = false;
+            highlightModeActive = false;
+            menuClippingActive = false;
+            dictPopupVisible = false;
+            dictDefinition[0] = '\0';
+            requestUpdate(true);
+          });
       break;
     }
     case EpubReaderMenuActivity::MenuAction::GO_TO_PERCENT: {
