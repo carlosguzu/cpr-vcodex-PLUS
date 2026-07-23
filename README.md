@@ -39,6 +39,20 @@ Here is a visual demonstration of the clippings capability:
 
 ---
 
+## Dictionary Shortcut & Short Power Press Settings
+
+This feature adds a quick shortcut to activate the Dictionary lookup mode using a short click of the power button, and provides full control configurations in settings.
+
+This behavior is based on and aligned with the settings structure of the community 0.30 release fork (which you can find at [omer-faruq-xteink/cpr-vcodex](https://github.com/omer-faruq-xteink/cpr-vcodex/releases)), corrected and polished to offer a seamless experience:
+- **Dedicated "Dictionary" Setting**: Added the `Dictionary` option to the short power button click list in both the device controls settings UI and the web interface settings page, properly aligning the indices to prevent layout and status bar settings mismatches.
+- **One-click Deactivation**: While looking up a word in the dictionary or selection highlights, pressing the `Back` button now exits the Dictionary mode completely, returning you immediately to standard distraction-free reading without leaving empty cursors.
+
+Here is a visual demonstration of the dictionary shortcut capability:
+
+![Dictionary Shortcut Showcase](./docs/videos/dictionary_settings_showcase.mp4)
+
+---
+
 # Original CPR-vCodex Documentation
 
 Below is the original documentation of the base CPR-vCodex project, detailing all its other features (analytics, sync day, dictionary, sleep screen customization, etc.).
