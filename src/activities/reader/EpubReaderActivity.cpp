@@ -566,7 +566,7 @@ void EpubReaderActivity::loop() {
     });
 
     if (cursorMoved) {
-      requestUpdate(true);
+      requestUpdate(false);
     }
     return;
   }
@@ -1931,7 +1931,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
                             sideBackgroundHeight, false);
         }
 
-        const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SAVE_BOOKMARK), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
+        const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
         GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
         GUI.drawSideButtonHints(renderer, tr(STR_DIR_UP), tr(STR_DIR_DOWN));
       } else if (!highlightModeActive) {
