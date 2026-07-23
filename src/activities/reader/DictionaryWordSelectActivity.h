@@ -36,6 +36,8 @@ class DictionaryWordSelectActivity final : public Activity {
     int16_t row = 0;
     int continuationIndex = -1;
     int continuationOf = -1;
+    int lineIdx = 0;
+    int wordIdx = 0;
   };
 
   struct Row {

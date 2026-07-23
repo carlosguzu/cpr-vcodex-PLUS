@@ -53,23 +53,25 @@ void DictionaryWordSelectActivity::extractWords() {
 
   prepareReaderFontMetrics();
 
+  int pageLineIdx = 0;
   for (const auto& element : page->elements) {
     if (!element || element->getTag() != TAG_PageLine) continue;
     const auto& line = static_cast<const PageLine&>(*element);
     const auto& block = line.getBlock();
-    if (!block) continue;
-
-    const auto& wordList = block->getWords();
-    const auto& xPositions = block->getWordXpos();
-    const size_t count = std::min(wordList.size(), xPositions.size());
-    for (size_t i = 0; i < count; ++i) {
-      const std::string cleaned = DictionaryStore::cleanWord(wordList[i]);
-      if (cleaned.empty()) continue;
-      const int16_t x = static_cast<int16_t>(line.xPos + xPositions[i] + marginLeft);
-      const int16_t y = static_cast<int16_t>(line.yPos + marginTop);
-      const int16_t width = static_cast<int16_t>(std::max(1, measureWordWidth(wordList[i].c_str())));
-      words.push_back(WordInfo{wordList[i], cleaned, x, y, width, 0});
+    if (block) {
+      const auto& wordList = block->getWords();
+      const auto& xPositions = block->getWordXpos();
+      const size_t count = std::min(wordList.size(), xPositions.size());
+      for (size_t i = 0; i < count; ++i) {
+        const std::string cleaned = DictionaryStore::cleanWord(wordList[i]);
+        if (cleaned.empty()) continue;
+        const int16_t x = static_cast<int16_t>(line.xPos + xPositions[i] + marginLeft);
+        const int16_t y = static_cast<int16_t>(line.yPos + marginTop);
+        const int16_t width = static_cast<int16_t>(std::max(1, measureWordWidth(wordList[i].c_str())));
+        words.push_back(WordInfo{wordList[i], cleaned, x, y, width, 0, -1, -1, pageLineIdx, static_cast<int>(i)});
+      }
     }
+    pageLineIdx++;
   }
 
   if (words.empty()) return;
@@ -427,7 +429,16 @@ void DictionaryWordSelectActivity::lookupSelectedWord() {
 
 void DictionaryWordSelectActivity::loop() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Power)) {
-    setResult(MenuResult{static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE)});
+    int selLineIdx = 0;
+    int selWordIdx = 0;
+    if (!rows.empty() && currentRow >= 0 && currentRow < static_cast<int>(rows.size()) &&
+        currentWordInRow >= 0 && currentWordInRow < static_cast<int>(rows[currentRow].wordIndices.size())) {
+      const int wIdx = rows[currentRow].wordIndices[currentWordInRow];
+      selLineIdx = words[wIdx].lineIdx;
+      selWordIdx = words[wIdx].wordIdx;
+    }
+    setResult(MenuResult{static_cast<int>(EpubReaderMenuActivity::MenuAction::CLIPPING_MODE),
+                         static_cast<uint8_t>(selLineIdx), static_cast<uint8_t>(selWordIdx)});
     finish();
     return;
   }
