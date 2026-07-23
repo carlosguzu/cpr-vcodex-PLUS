@@ -369,20 +369,11 @@ void EpubReaderActivity::loop() {
 
   if (dictModeActive) {
     if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-      if (highlightModeActive) {
-        highlightModeActive = false;
-        dictModeActive = false;
-        menuClippingActive = false;
-        requestUpdate();
-        return;
-      }
-      if (dictPopupVisible) {
-        dictPopupVisible = false;
-        dictDefinition[0] = '\0';
-      } else {
-        dictModeActive = false;
-        menuClippingActive = false;
-      }
+      dictModeActive = false;
+      highlightModeActive = false;
+      dictPopupVisible = false;
+      dictDefinition[0] = '\0';
+      menuClippingActive = false;
       requestUpdate();
       return;
     }
