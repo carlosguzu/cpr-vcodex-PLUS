@@ -53,6 +53,15 @@ Here is a visual demonstration of the dictionary shortcut capability:
 
 ---
 
+## Useful Resources
+
+Here are some external resources and tools for Xteink e-readers that are very useful:
+- [XTC JS Web Application](https://xtcjs.app/)
+- [Xteink EPUB Optimizer Guide](https://www.readme.club/resources/xteink-epub-optimizer-8d28d125)
+- [EPUB Baseline JPEG Converter](https://github.com/zgredex/EPUB_Baseline_JPEG_Converter)
+
+---
+
 # Original CPR-vCodex Documentation
 
 Below is the original documentation of the base CPR-vCodex project, detailing all its other features (analytics, sync day, dictionary, sleep screen customization, etc.).
