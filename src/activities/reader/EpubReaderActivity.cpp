@@ -388,6 +388,14 @@ void EpubReaderActivity::loop() {
     }
 
     if (!highlightModeActive && mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      if (dictPopupVisible) {
+        dictModeActive = false;
+        dictPopupVisible = false;
+        dictDefinition[0] = '\0';
+        menuClippingActive = false;
+        requestUpdate();
+        return;
+      }
       if (menuClippingActive) {
         highlightModeActive = true;
         highlightAnchorLineIdx = dictCursorLineIdx;
