@@ -1217,12 +1217,17 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     }
     case EpubReaderMenuActivity::MenuAction::CLIPPING_MODE: {
       dictModeActive = true;
-      highlightModeActive = false;
+      highlightModeActive = true;
       menuClippingActive = true;
       dictCursorLineIdx = 0;
       dictCursorWordIdx = 0;
+      highlightAnchorLineIdx = 0;
+      highlightAnchorWordIdx = 0;
       dictDefinition[0] = '\0';
       dictPopupVisible = false;
+      GUI.drawPopup(renderer, tr(STR_HIGHLIGHT_MODE));
+      renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+      delay(500);
       requestUpdate(true);
       break;
     }
@@ -1915,20 +1920,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
         for (int i = 0; i < hlWordCount; i++) {
           renderer.fillRect(hlWords[i].x, hlWords[i].y, hlWords[i].w, lineH, true);
           renderer.drawText(readerFontId, hlWords[i].x, hlWords[i].y, hlWords[i].text, false);
-        }
-
-        const auto& metrics = UITheme::getInstance().getMetrics();
-        const int sideBackgroundWidth = metrics.sideButtonHintsWidth + 8;
-        const int sideBackgroundHeight = 168;
-        if (gpio.deviceIsX3()) {
-          constexpr int sideY = 151;
-          renderer.fillRect(0, sideY, sideBackgroundWidth, sideBackgroundHeight / 2, false);
-          renderer.fillRect(renderer.getScreenWidth() - sideBackgroundWidth, sideY, sideBackgroundWidth,
-                            sideBackgroundHeight / 2, false);
-        } else {
-          const int sideY = std::min(341, std::max(0, renderer.getScreenHeight() - sideBackgroundHeight - 4));
-          renderer.fillRect(renderer.getScreenWidth() - sideBackgroundWidth, sideY, sideBackgroundWidth,
-                            sideBackgroundHeight, false);
         }
 
         const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));

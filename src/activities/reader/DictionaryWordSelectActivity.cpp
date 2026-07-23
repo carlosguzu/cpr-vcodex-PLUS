@@ -32,7 +32,7 @@ void DictionaryWordSelectActivity::onEnter() {
   extractWords();
   mergeHyphenatedWords();
   if (!rows.empty()) {
-    currentRow = std::min<int>(static_cast<int>(rows.size()) / 3, static_cast<int>(rows.size()) - 1);
+    currentRow = 0;
     currentWordInRow = 0;
   }
   requestUpdate();
