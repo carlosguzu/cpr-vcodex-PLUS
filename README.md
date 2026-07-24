@@ -19,7 +19,9 @@ The passcode feature secures your device and personal reading data with a lightw
 
 Here is a visual demonstration of the passcode protection capability:
 
-<video src="https://github.com/carlosguzu/cpr-vcodex-PLUS/raw/master/docs/videos/passcode_showcase.mp4" width="100%" controls></video>
+<p align="center">
+  <img src="https://github.com/carlosguzu/cpr-vcodex-PLUS/raw/master/docs/videos/passcode_showcase.gif" alt="Passcode Protection Showcase" width="320" />
+</p>
 
 ---
 
@@ -35,7 +37,9 @@ This feature is based on the clipping ideas from the community 0.30 release fork
 
 Here is a visual demonstration of the clippings capability:
 
-<video src="https://github.com/carlosguzu/cpr-vcodex-PLUS/raw/master/docs/videos/clippings_showcase.mp4" width="100%" controls></video>
+<p align="center">
+  <img src="https://github.com/carlosguzu/cpr-vcodex-PLUS/raw/master/docs/videos/clippings_showcase.gif" alt="My Clippings Showcase" width="320" />
+</p>
 
 ---
 
@@ -49,7 +53,9 @@ This behavior is based on and aligned with the settings structure of the communi
 
 Here is a visual demonstration of the dictionary shortcut capability:
 
-<video src="https://github.com/carlosguzu/cpr-vcodex-PLUS/raw/master/docs/videos/dictionary_settings_showcase.mp4" width="100%" controls></video>
+<p align="center">
+  <img src="https://github.com/carlosguzu/cpr-vcodex-PLUS/raw/master/docs/videos/dictionary_settings_showcase.gif" alt="Dictionary Shortcut Showcase" width="320" />
+</p>
 
 ---
 
