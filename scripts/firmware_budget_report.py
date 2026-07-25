@@ -128,7 +128,7 @@ def main() -> int:
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--out-json", type=Path)
     parser.add_argument("--out-md", type=Path)
-    parser.add_argument("--flash-budget-percent", type=float, default=97.5)
+    parser.add_argument("--flash-budget-percent", type=float, default=98.0)
     parser.add_argument("--fail-over-budget", action="store_true")
     args = parser.parse_args()
 

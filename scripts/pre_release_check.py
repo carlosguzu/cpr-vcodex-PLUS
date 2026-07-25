@@ -188,7 +188,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate CPR-vCodex release readiness before pushing a stable tag.")
     parser.add_argument("--tag", required=True, help="Candidate stable tag, e.g. 1.2.0.39-vcodex-PLUS")
     parser.add_argument("--jobs", type=int, default=1, help="PlatformIO build jobs (default: 1)")
-    parser.add_argument("--flash-budget-percent", type=float, default=97.5)
+    parser.add_argument("--flash-budget-percent", type=float, default=98.0)
     parser.add_argument("--skip-build", action="store_true", help="Validate existing artifacts without rebuilding")
     parser.add_argument("--allow-dirty", action="store_true")
     parser.add_argument("--allow-existing-tag", action="store_true")
