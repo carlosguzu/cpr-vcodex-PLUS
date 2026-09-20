@@ -12,30 +12,61 @@
 void GymRoutineOverviewActivity::onEnter() {
   Activity::onEnter();
   GYM_TRACKER.startRoutineSession(routineId, routineName);
-  const auto* routine = GYM_TRACKER.findRoutine(routineId);
-  const int total = routine ? static_cast<int>(routine->exercises.size()) : 0;
+  cachedRoutine = GYM_TRACKER.findRoutine(routineId);
+  const int total = cachedRoutine ? static_cast<int>(cachedRoutine->exercises.size()) : 0;
+
+  // Auto-focus the first incomplete exercise if current is already completed
+  if (cachedRoutine && total > 0) {
+    if (GYM_TRACKER.isExerciseCompleted(cachedRoutine->exercises[selectedIndex].id,
+                                        cachedRoutine->exercises[selectedIndex].defaultSets)) {
+      for (int i = 0; i < total; ++i) {
+        if (!GYM_TRACKER.isExerciseCompleted(cachedRoutine->exercises[i].id,
+                                            cachedRoutine->exercises[i].defaultSets)) {
+          selectedIndex = i;
+          break;
+        }
+      }
+    }
+  }
+
   selectedIndex = std::clamp(selectedIndex, 0, std::max(0, total - 1));
   requestUpdate();
 }
 
 void GymRoutineOverviewActivity::openSelectedExercise() {
-  const auto* routine = GYM_TRACKER.findRoutine(routineId);
-  if (!routine || selectedIndex < 0 || selectedIndex >= static_cast<int>(routine->exercises.size())) {
+  if (!cachedRoutine) {
+    cachedRoutine = GYM_TRACKER.findRoutine(routineId);
+  }
+  if (!cachedRoutine || selectedIndex < 0 || selectedIndex >= static_cast<int>(cachedRoutine->exercises.size())) {
     return;
   }
 
-  const auto& ex = routine->exercises[selectedIndex];
+  const auto& ex = cachedRoutine->exercises[selectedIndex];
   auto activity = std::make_unique<GymWorkoutActivity>(renderer, mappedInput, routineId, routineName, ex.id, ex.name,
                                                       ex.defaultSets, ex.defaultReps, ex.defaultWeight);
 
   startActivityForResult(std::move(activity), [this](const ActivityResult&) {
+    if (cachedRoutine) {
+      const int total = static_cast<int>(cachedRoutine->exercises.size());
+      // Auto-advance to next incomplete exercise if current exercise is completed
+      if (GYM_TRACKER.isExerciseCompleted(cachedRoutine->exercises[selectedIndex].id,
+                                          cachedRoutine->exercises[selectedIndex].defaultSets)) {
+        for (int i = 0; i < total; ++i) {
+          const int nextIdx = (selectedIndex + 1 + i) % total;
+          if (!GYM_TRACKER.isExerciseCompleted(cachedRoutine->exercises[nextIdx].id,
+                                              cachedRoutine->exercises[nextIdx].defaultSets)) {
+            selectedIndex = nextIdx;
+            break;
+          }
+        }
+      }
+    }
     requestUpdate();
   });
 }
 
 void GymRoutineOverviewActivity::loop() {
-  const auto* routine = GYM_TRACKER.findRoutine(routineId);
-  const int total = routine ? static_cast<int>(routine->exercises.size()) : 0;
+  const int total = cachedRoutine ? static_cast<int>(cachedRoutine->exercises.size()) : 0;
 
   if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
     finish();
@@ -79,7 +110,7 @@ void GymRoutineOverviewActivity::render(RenderLock&&) {
   const int pageWidth = renderer.getScreenWidth();
   const int pageHeight = renderer.getScreenHeight();
 
-  const auto* routine = GYM_TRACKER.findRoutine(routineId);
+  const auto* routine = cachedRoutine ? cachedRoutine : GYM_TRACKER.findRoutine(routineId);
   if (!routine || routine->exercises.empty()) {
     HeaderDateUtils::drawHeaderWithDate(renderer, routineName.c_str(), tr(STR_GYM_NO_ROUTINES));
     const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
@@ -88,7 +119,7 @@ void GymRoutineOverviewActivity::render(RenderLock&&) {
     return;
   }
 
-  // Header
+  // Header & Completion calculation
   int completedCount = 0;
   for (const auto& ex : routine->exercises) {
     if (GYM_TRACKER.isExerciseCompleted(ex.id, ex.defaultSets)) {
@@ -97,12 +128,23 @@ void GymRoutineOverviewActivity::render(RenderLock&&) {
   }
 
   char subHeader[64];
-  snprintf(subHeader, sizeof(subHeader), "%d / %d completados", completedCount,
+  snprintf(subHeader, sizeof(subHeader), tr(STR_GYM_COMPLETED_OF), completedCount,
            static_cast<int>(routine->exercises.size()));
   HeaderDateUtils::drawHeaderWithDate(renderer, routineName.c_str(), subHeader);
 
+  // Visual Progress Bar under header
+  const int barX = metrics.contentSidePadding;
+  const int barW = pageWidth - metrics.contentSidePadding * 2;
+  const int barH = 5;
+  const int barY = metrics.topPadding + metrics.headerHeight + 2;
+  renderer.drawRect(barX, barY, barW, barH, true);
+  if (!routine->exercises.empty() && completedCount > 0) {
+    const int fillW = (completedCount * barW) / static_cast<int>(routine->exercises.size());
+    renderer.fillRect(barX, barY, fillW, barH, true);
+  }
+
   // Content area: split into list + bottom preview card
-  const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
+  const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing + 6;
   const int previewCardHeight = 110;
   const int listHeight = pageHeight - contentTop - metrics.buttonHintsHeight - previewCardHeight - metrics.verticalSpacing * 2;
 
@@ -121,7 +163,7 @@ void GymRoutineOverviewActivity::render(RenderLock&&) {
           const auto& ex = routine->exercises[index];
           const int doneSets = GYM_TRACKER.getCompletedSetsCount(ex.id);
           char buf[64];
-          snprintf(buf, sizeof(buf), "%d/%d series @ %.1f kg", doneSets, ex.defaultSets, ex.defaultWeight);
+          snprintf(buf, sizeof(buf), tr(STR_GYM_SETS_AT_WEIGHT), doneSets, ex.defaultSets, ex.defaultWeight);
           return std::string(buf);
         }
         return std::string{};
@@ -138,7 +180,7 @@ void GymRoutineOverviewActivity::render(RenderLock&&) {
     renderer.drawRect(cardX, cardY, cardW, previewCardHeight, true);
 
     char targetBuf[80];
-    snprintf(targetBuf, sizeof(targetBuf), "Objetivo: %d series x %d reps @ %.1f kg", selEx.defaultSets,
+    snprintf(targetBuf, sizeof(targetBuf), tr(STR_GYM_TARGET_DETAIL), selEx.defaultSets,
              selEx.defaultReps, selEx.defaultWeight);
     renderer.drawText(UI_10_FONT_ID, cardX + 12, cardY + 12, targetBuf, true, EpdFontFamily::BOLD);
 
@@ -146,15 +188,15 @@ void GymRoutineOverviewActivity::render(RenderLock&&) {
     int lastR = 0;
     char prevBuf[80];
     if (GYM_TRACKER.getLastLoggedSet(selEx.id, lastW, lastR)) {
-      snprintf(prevBuf, sizeof(prevBuf), "Ultimo registro: %.1f kg x %d reps", lastW, lastR);
+      snprintf(prevBuf, sizeof(prevBuf), tr(STR_GYM_LAST_RECORD), lastW, lastR);
     } else {
-      snprintf(prevBuf, sizeof(prevBuf), "Sin historial previo (se usaran valores por defecto)");
+      snprintf(prevBuf, sizeof(prevBuf), "%s", tr(STR_GYM_NO_PREV_HISTORY));
     }
     renderer.drawText(SMALL_FONT_ID, cardX + 12, cardY + 42, prevBuf, true, EpdFontFamily::REGULAR);
 
     const int doneSets = GYM_TRACKER.getCompletedSetsCount(selEx.id);
     char todayBuf[80];
-    snprintf(todayBuf, sizeof(todayBuf), "Progreso hoy: %d de %d series completadas", doneSets, selEx.defaultSets);
+    snprintf(todayBuf, sizeof(todayBuf), tr(STR_GYM_PROGRESS_TODAY), doneSets, selEx.defaultSets);
     renderer.drawText(SMALL_FONT_ID, cardX + 12, cardY + 70, todayBuf, true, EpdFontFamily::REGULAR);
   }
 

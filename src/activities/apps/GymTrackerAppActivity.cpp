@@ -109,7 +109,9 @@ void GymTrackerAppActivity::render(RenderLock&&) {
           return std::to_string(routines[index].exercises.size()) + " " + std::string(tr(STR_GYM_EXERCISES));
         }
         const int histCount = GYM_TRACKER.getHistoryCount();
-        return std::to_string(histCount) + " sesion(es)";
+        char buf[32];
+        snprintf(buf, sizeof(buf), tr(STR_GYM_SESSIONS), histCount);
+        return std::string(buf);
       },
       [routineCount](const int index) {
         return (index == routineCount) ? UIIcon::Recent : UIIcon::Trophy;

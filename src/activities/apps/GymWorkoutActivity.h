@@ -23,6 +23,10 @@ class GymWorkoutActivity final : public Activity {
   float lastWeight = 0.0f;
   int lastReps = 0;
 
+  bool hasPrRecord = false;
+  float prWeight = 0.0f;
+  int prReps = 0;
+
   int selectedField = 0; // 0 = Weight, 1 = Reps
 
   // Rest timer
@@ -33,6 +37,7 @@ class GymWorkoutActivity final : public Activity {
 
   void logCurrentSet();
   void adjustSelectedField(int delta);
+  void adjustTimer(int deltaSeconds);
   int getRemainingTimerSeconds() const;
 
  public:

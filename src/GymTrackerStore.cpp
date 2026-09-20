@@ -304,6 +304,15 @@ GymExerciseSession* GymTrackerStore::getOrCreateExerciseSession(const std::strin
   return &activeSession.exercises.back();
 }
 
+const GymExerciseSession* GymTrackerStore::getExerciseSession(const std::string& exerciseId) const {
+  for (const auto& ex : activeSession.exercises) {
+    if (ex.exerciseId == exerciseId) {
+      return &ex;
+    }
+  }
+  return nullptr;
+}
+
 void GymTrackerStore::logSet(const std::string& exerciseId, const std::string& exerciseName, const int setNumber,
                              const float weight, const int reps) {
   GymExerciseSession* exSession = getOrCreateExerciseSession(exerciseId, exerciseName);
@@ -352,9 +361,11 @@ bool GymTrackerStore::getLastLoggedSet(const std::string& exerciseId, float& las
     return false;
   }
 
-  // Search in reverse from most recent session to oldest
+  // Search in reverse from most recent session to oldest, skipping today's active session
   for (auto sIt = history.rbegin(); sIt != history.rend(); ++sIt) {
-    // If this session is the active session today, check if there was a set before today
+    if (!activeSession.dateStr.empty() && sIt->dateStr == activeSession.dateStr) {
+      continue;
+    }
     for (const auto& ex : sIt->exercises) {
       if (ex.exerciseId == exerciseId && !ex.sets.empty()) {
         const auto& lastSet = ex.sets.back();
@@ -368,6 +379,32 @@ bool GymTrackerStore::getLastLoggedSet(const std::string& exerciseId, float& las
   }
 
   return false;
+}
+
+bool GymTrackerStore::getPersonalRecord(const std::string& exerciseId, float& prWeight, int& prReps) const {
+  bool found = false;
+  float maxWeight = 0.0f;
+  int repsAtMax = 0;
+
+  for (const auto& s : history) {
+    for (const auto& ex : s.exercises) {
+      if (ex.exerciseId == exerciseId) {
+        for (const auto& set : ex.sets) {
+          if (set.completed && set.weight > maxWeight) {
+            maxWeight = set.weight;
+            repsAtMax = set.reps;
+            found = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (found) {
+    prWeight = maxWeight;
+    prReps = repsAtMax;
+  }
+  return found;
 }
 
 int GymTrackerStore::getCompletedSetsCount(const std::string& exerciseId) const {

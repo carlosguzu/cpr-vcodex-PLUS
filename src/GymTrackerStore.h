@@ -70,12 +70,16 @@ class GymTrackerStore {
   GymWorkoutSession& getActiveSession() { return activeSession; }
   void startRoutineSession(const std::string& routineId, const std::string& routineName);
   GymExerciseSession* getOrCreateExerciseSession(const std::string& exerciseId, const std::string& exerciseName);
+  const GymExerciseSession* getExerciseSession(const std::string& exerciseId) const;
   
   // Set recording
   void logSet(const std::string& exerciseId, const std::string& exerciseName, int setNumber, float weight, int reps);
   
-  // Query previous performance for progressive overload
+  // Query previous performance for progressive overload (excludes today's active session)
   bool getLastLoggedSet(const std::string& exerciseId, float& lastWeight, int& lastReps) const;
+
+  // Query all-time personal record (highest weight lifted for exercise)
+  bool getPersonalRecord(const std::string& exerciseId, float& prWeight, int& prReps) const;
   
   // Check if an exercise has completed sets today
   int getCompletedSetsCount(const std::string& exerciseId) const;

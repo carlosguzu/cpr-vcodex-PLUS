@@ -4,9 +4,11 @@
 #include <I18n.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 #include "GymTrackerStore.h"
+#include "activities/util/ConfirmationActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/HeaderDateUtils.h"
@@ -29,7 +31,7 @@ GymWorkoutActivity::GymWorkoutActivity(GfxRenderer& renderer, MappedInputManager
 void GymWorkoutActivity::onEnter() {
   Activity::onEnter();
 
-  // Find previous record from history
+  // Find previous record from history (excluding today's active session)
   hasLastRecord = GYM_TRACKER.getLastLoggedSet(exerciseId, lastWeight, lastReps);
   if (hasLastRecord) {
     currentWeight = lastWeight;
@@ -39,12 +41,16 @@ void GymWorkoutActivity::onEnter() {
     currentReps = defaultReps;
   }
 
+  // Check all-time Personal Record
+  hasPrRecord = GYM_TRACKER.getPersonalRecord(exerciseId, prWeight, prReps);
+
   // Calculate current set from already completed sets today
   const int doneToday = GYM_TRACKER.getCompletedSetsCount(exerciseId);
   currentSet = doneToday + 1;
 
   selectedField = 0;  // Start with Weight selected
   isTimerRunning = false;
+  timerDurationMs = 90000;
   requestUpdate();
 }
 
@@ -55,6 +61,24 @@ int GymWorkoutActivity::getRemainingTimerSeconds() const {
     return 0;
   }
   return static_cast<int>((timerDurationMs - elapsed) / 1000U);
+}
+
+void GymWorkoutActivity::adjustTimer(const int deltaSeconds) {
+  if (!isTimerRunning) return;
+  const uint32_t deltaMs = static_cast<uint32_t>(std::abs(deltaSeconds)) * 1000U;
+  const uint32_t elapsed = millis() - timerStartMs;
+  if (deltaSeconds > 0) {
+    timerDurationMs += deltaMs;
+  } else {
+    if (elapsed + deltaMs + 5000U < timerDurationMs) {
+      timerDurationMs -= deltaMs;
+    } else {
+      // Keep at least 5s remaining
+      timerDurationMs = elapsed + 5000U;
+    }
+  }
+  lastTimerRenderSec = 0;
+  requestUpdate();
 }
 
 void GymWorkoutActivity::adjustSelectedField(const int delta) {
@@ -79,9 +103,10 @@ void GymWorkoutActivity::logCurrentSet() {
     return;
   }
 
-  // Advance to next set and start rest timer (90s)
+  // Advance to next set and start rest timer (90s default)
   currentSet++;
   isTimerRunning = true;
+  timerDurationMs = 90000;
   timerStartMs = millis();
   lastTimerRenderSec = 90;
   requestUpdate();
@@ -98,12 +123,36 @@ void GymWorkoutActivity::loop() {
       lastTimerRenderSec = remSec;
       requestUpdate();
     }
+
+    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm) ||
+        mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+      isTimerRunning = false;
+      requestUpdate();
+      return;
+    }
+
+    // Left decreases timer by 15s, Right increases timer by 15s
+    if (mappedInput.wasPressed(MappedInputManager::Button::Left)) {
+      adjustTimer(-15);
+      return;
+    }
+    if (mappedInput.wasPressed(MappedInputManager::Button::Right)) {
+      adjustTimer(15);
+      return;
+    }
+    return;
   }
 
   if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
-    if (isTimerRunning) {
-      isTimerRunning = false;
-      requestUpdate();
+    // If workout is in progress, ask for confirmation to avoid accidental exit
+    if (currentSet > 1 && currentSet <= totalSets) {
+      startActivityForResult(
+          std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_GYM_EXIT_CONFIRM), ""),
+          [this](const ActivityResult& result) {
+            if (!result.isCancelled) {
+              finish();
+            }
+          });
       return;
     }
     finish();
@@ -146,27 +195,27 @@ void GymWorkoutActivity::render(RenderLock&&) {
 
   if (currentSet > totalSets) {
     // All sets complete celebration screen
-    renderer.drawCenteredText(UI_12_FONT_ID, currentY + 40, "¡Ejercicio Completado! 🎉", true, EpdFontFamily::BOLD);
+    renderer.drawCenteredText(UI_12_FONT_ID, currentY + 40, tr(STR_GYM_EXERCISE_DONE), true, EpdFontFamily::BOLD);
 
     char summaryBuf[80];
-    snprintf(summaryBuf, sizeof(summaryBuf), "%d series registradas con exito", totalSets);
+    snprintf(summaryBuf, sizeof(summaryBuf), tr(STR_GYM_SETS_LOGGED), totalSets);
     renderer.drawCenteredText(UI_10_FONT_ID, currentY + 80, summaryBuf, true, EpdFontFamily::REGULAR);
 
     const int boxW = pageWidth - sidePadding * 2;
     renderer.drawRect(sidePadding, currentY + 120, boxW, 140, true);
 
-    const auto* exSession = GYM_TRACKER.getOrCreateExerciseSession(exerciseId, exerciseName);
+    const auto* exSession = GYM_TRACKER.getExerciseSession(exerciseId);
     int logY = currentY + 135;
     if (exSession) {
       for (const auto& set : exSession->sets) {
         char setLine[64];
-        snprintf(setLine, sizeof(setLine), "Serie %d:  %.1f kg  x  %d reps  [OK]", set.setNumber, set.weight, set.reps);
+        snprintf(setLine, sizeof(setLine), tr(STR_GYM_SET_LINE_OK), set.setNumber, set.weight, set.reps);
         renderer.drawText(UI_10_FONT_ID, sidePadding + 16, logY, setLine, true, EpdFontFamily::BOLD);
         logY += 28;
       }
     }
 
-    const auto labels = mappedInput.mapLabels(tr(STR_BACK), "Finalizar", "", "");
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_GYM_FINISH), "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();
     return;
@@ -178,14 +227,14 @@ void GymWorkoutActivity::render(RenderLock&&) {
   renderer.drawRect(sidePadding, currentY, cardW, cardH, true);
 
   char setBadge[40];
-  snprintf(setBadge, sizeof(setBadge), "SERIE %d DE %d", currentSet, totalSets);
+  snprintf(setBadge, sizeof(setBadge), tr(STR_GYM_SET_N_OF_N), currentSet, totalSets);
   renderer.drawText(UI_10_FONT_ID, sidePadding + 10, currentY + 10, setBadge, true, EpdFontFamily::BOLD);
 
-  char prevBadge[64];
+  char prevBadge[80];
   if (hasLastRecord) {
-    snprintf(prevBadge, sizeof(prevBadge), "Ultimo: %.1f kg x %d reps", lastWeight, lastReps);
+    snprintf(prevBadge, sizeof(prevBadge), tr(STR_GYM_LAST_RECORD), lastWeight, lastReps);
   } else {
-    snprintf(prevBadge, sizeof(prevBadge), "Objetivo: %.1f kg x %d reps", defaultWeight, defaultReps);
+    snprintf(prevBadge, sizeof(prevBadge), tr(STR_GYM_TARGET_DETAIL), totalSets, defaultReps, defaultWeight);
   }
   renderer.drawText(SMALL_FONT_ID, sidePadding + 10, currentY + 36, prevBadge, true, EpdFontFamily::REGULAR);
 
@@ -197,15 +246,24 @@ void GymWorkoutActivity::render(RenderLock&&) {
   // Weight Box
   const int weightX = sidePadding;
   const bool weightSelected = (selectedField == 0);
+  const bool isPr = (hasPrRecord && currentWeight > prWeight);
+
   if (weightSelected) {
     renderer.fillRect(weightX, currentY, halfW, 70, true);
-    renderer.drawText(SMALL_FONT_ID, weightX + 8, currentY + 8, "PESO (KG) [>]", false, EpdFontFamily::BOLD);
+    std::string wLabel = std::string(tr(STR_GYM_WEIGHT_KG)) + " [>]";
+    renderer.drawText(SMALL_FONT_ID, weightX + 8, currentY + 8, wLabel.c_str(), false, EpdFontFamily::BOLD);
+    if (isPr) {
+      renderer.drawText(SMALL_FONT_ID, weightX + halfW - 36, currentY + 8, tr(STR_GYM_PR_TAG), false, EpdFontFamily::BOLD);
+    }
     char wBuf[32];
     snprintf(wBuf, sizeof(wBuf), "%.1f kg", currentWeight);
     renderer.drawText(UI_12_FONT_ID, weightX + 10, currentY + 32, wBuf, false, EpdFontFamily::BOLD);
   } else {
     renderer.drawRect(weightX, currentY, halfW, 70, true);
-    renderer.drawText(SMALL_FONT_ID, weightX + 8, currentY + 8, "PESO (KG)", true, EpdFontFamily::REGULAR);
+    renderer.drawText(SMALL_FONT_ID, weightX + 8, currentY + 8, tr(STR_GYM_WEIGHT_KG), true, EpdFontFamily::REGULAR);
+    if (isPr) {
+      renderer.drawText(SMALL_FONT_ID, weightX + halfW - 36, currentY + 8, tr(STR_GYM_PR_TAG), true, EpdFontFamily::BOLD);
+    }
     char wBuf[32];
     snprintf(wBuf, sizeof(wBuf), "%.1f kg", currentWeight);
     renderer.drawText(UI_12_FONT_ID, weightX + 10, currentY + 32, wBuf, true, EpdFontFamily::BOLD);
@@ -216,13 +274,14 @@ void GymWorkoutActivity::render(RenderLock&&) {
   const bool repsSelected = (selectedField == 1);
   if (repsSelected) {
     renderer.fillRect(repsX, currentY, halfW, 70, true);
-    renderer.drawText(SMALL_FONT_ID, repsX + 8, currentY + 8, "REPS [>]", false, EpdFontFamily::BOLD);
+    std::string rLabel = std::string(tr(STR_GYM_REPS)) + " [>]";
+    renderer.drawText(SMALL_FONT_ID, repsX + 8, currentY + 8, rLabel.c_str(), false, EpdFontFamily::BOLD);
     char rBuf[32];
     snprintf(rBuf, sizeof(rBuf), "%d reps", currentReps);
     renderer.drawText(UI_12_FONT_ID, repsX + 14, currentY + 32, rBuf, false, EpdFontFamily::BOLD);
   } else {
     renderer.drawRect(repsX, currentY, halfW, 70, true);
-    renderer.drawText(SMALL_FONT_ID, repsX + 8, currentY + 8, "REPS", true, EpdFontFamily::REGULAR);
+    renderer.drawText(SMALL_FONT_ID, repsX + 8, currentY + 8, tr(STR_GYM_REPS), true, EpdFontFamily::REGULAR);
     char rBuf[32];
     snprintf(rBuf, sizeof(rBuf), "%d reps", currentReps);
     renderer.drawText(UI_12_FONT_ID, repsX + 14, currentY + 32, rBuf, true, EpdFontFamily::BOLD);
@@ -236,13 +295,14 @@ void GymWorkoutActivity::render(RenderLock&&) {
     renderer.drawRect(sidePadding, currentY, cardW, 42, true);
 
     char timerText[64];
-    snprintf(timerText, sizeof(timerText), "Descanso: %02d:%02d", remSec / 60, remSec % 60);
+    snprintf(timerText, sizeof(timerText), tr(STR_GYM_REST_COUNTDOWN), remSec / 60, remSec % 60);
     renderer.drawText(UI_10_FONT_ID, sidePadding + 10, currentY + 12, timerText, true, EpdFontFamily::BOLD);
 
     const int barTotalW = cardW - 160;
     const int barX = sidePadding + 140;
     renderer.drawRect(barX, currentY + 14, barTotalW, 14, true);
-    const int fillW = (remSec * (barTotalW - 4)) / 90;
+    const int totalSec = static_cast<int>(timerDurationMs / 1000U);
+    const int fillW = totalSec > 0 ? (remSec * (barTotalW - 4)) / totalSec : 0;
     if (fillW > 0) {
       renderer.fillRect(barX + 2, currentY + 16, fillW, 10, true);
     }
@@ -250,10 +310,10 @@ void GymWorkoutActivity::render(RenderLock&&) {
   }
 
   // 4. Completed Sets Table for Today
-  renderer.drawText(UI_10_FONT_ID, sidePadding, currentY, "Series completadas hoy:", true, EpdFontFamily::BOLD);
+  renderer.drawText(UI_10_FONT_ID, sidePadding, currentY, tr(STR_GYM_COMPLETED_SETS), true, EpdFontFamily::BOLD);
   currentY += 24;
 
-  const auto* exSession = GYM_TRACKER.getOrCreateExerciseSession(exerciseId, exerciseName);
+  const auto* exSession = GYM_TRACKER.getExerciseSession(exerciseId);
   for (int s = 1; s <= totalSets; ++s) {
     char setLine[64];
     bool setDone = false;
@@ -272,22 +332,26 @@ void GymWorkoutActivity::render(RenderLock&&) {
     }
 
     if (setDone) {
-      snprintf(setLine, sizeof(setLine), "Serie %d:  %.1f kg  x  %d reps  [OK]", s, sWeight, sReps);
+      snprintf(setLine, sizeof(setLine), tr(STR_GYM_SET_LINE_OK), s, sWeight, sReps);
       renderer.drawText(SMALL_FONT_ID, sidePadding + 8, currentY, setLine, true, EpdFontFamily::REGULAR);
     } else if (s == currentSet) {
-      snprintf(setLine, sizeof(setLine), "Serie %d:  [En curso...]", s);
+      snprintf(setLine, sizeof(setLine), tr(STR_GYM_SET_IN_PROGRESS), s);
       renderer.drawText(SMALL_FONT_ID, sidePadding + 8, currentY, setLine, true, EpdFontFamily::BOLD);
     } else {
-      snprintf(setLine, sizeof(setLine), "Serie %d:  ---", s);
+      snprintf(setLine, sizeof(setLine), tr(STR_GYM_SET_PENDING), s);
       renderer.drawText(SMALL_FONT_ID, sidePadding + 8, currentY, setLine, true, EpdFontFamily::REGULAR);
     }
     currentY += 22;
   }
 
   // Button Hints
-  const char* confirmLabel = isTimerRunning ? "Saltar Reloj" : "Registrar ✓";
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), confirmLabel, "[-]", "[+]");
-  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  if (isTimerRunning) {
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_GYM_SKIP_TIMER), "[-15s]", "[+15s]");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  } else {
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_GYM_LOG_BTN), "[-]", "[+]");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  }
 
   renderer.displayBuffer();
 }

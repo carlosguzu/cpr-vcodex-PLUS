@@ -9,6 +9,7 @@ class GymRoutineOverviewActivity final : public Activity {
   std::string routineId;
   std::string routineName;
   int selectedIndex = 0;
+  const struct GymRoutine* cachedRoutine = nullptr;
 
   void openSelectedExercise();
 
