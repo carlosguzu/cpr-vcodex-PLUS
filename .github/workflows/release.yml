@@ -44,6 +44,7 @@ jobs:
           python3 scripts/firmware_budget_report.py \
             --tag "${GITHUB_REF_NAME}" \
             --build-log "artifacts/${GITHUB_REF_NAME}-build.log" \
+            --flash-budget-percent 98.5 \
             --fail-over-budget
 
       - name: Validate packaged release artifact
