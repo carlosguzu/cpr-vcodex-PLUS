@@ -543,6 +543,10 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
       clamp(doc["opdsBrowserShortcut"] | s.opdsBrowserShortcut, shortcutLocationCount, s.opdsBrowserShortcut);
   s.opdsBrowserShortcutOrder = clamp(doc["opdsBrowserShortcutOrder"] | s.opdsBrowserShortcutOrder, shortcutOrderCount,
                                      s.opdsBrowserShortcutOrder);
+  s.gymTrackerShortcut =
+      clamp(doc["gymTrackerShortcut"] | s.gymTrackerShortcut, shortcutLocationCount, s.gymTrackerShortcut);
+  s.gymTrackerShortcutOrder = clamp(doc["gymTrackerShortcutOrder"] | s.gymTrackerShortcutOrder, shortcutOrderCount,
+                                     s.gymTrackerShortcutOrder);
 
   s.browseFilesShortcutVisible = clamp(doc["browseFilesShortcutVisible"] | s.browseFilesShortcutVisible,
                                        static_cast<uint8_t>(2), s.browseFilesShortcutVisible);
@@ -584,6 +588,8 @@ bool loadSettingsDirect(CrossPointSettings& s, const JsonDocument& doc, bool* ne
       clamp(doc["sleepShortcutVisible"] | s.sleepShortcutVisible, static_cast<uint8_t>(2), s.sleepShortcutVisible);
   s.opdsBrowserShortcutVisible = clamp(doc["opdsBrowserShortcutVisible"] | s.opdsBrowserShortcutVisible,
                                        static_cast<uint8_t>(2), s.opdsBrowserShortcutVisible);
+  s.gymTrackerShortcutVisible = clamp(doc["gymTrackerShortcutVisible"] | s.gymTrackerShortcutVisible,
+                                      static_cast<uint8_t>(2), s.gymTrackerShortcutVisible);
 
   migrateLegacyStatsShortcut(s, doc, needsResave);
   normalizeShortcutOrderSettings(s);
@@ -843,6 +849,8 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   doc["sleepShortcutOrder"] = s.sleepShortcutOrder;
   doc["opdsBrowserShortcut"] = s.opdsBrowserShortcut;
   doc["opdsBrowserShortcutOrder"] = s.opdsBrowserShortcutOrder;
+  doc["gymTrackerShortcut"] = s.gymTrackerShortcut;
+  doc["gymTrackerShortcutOrder"] = s.gymTrackerShortcutOrder;
   doc["browseFilesShortcutVisible"] = s.browseFilesShortcutVisible;
   doc["syncDayShortcutVisible"] = s.syncDayShortcutVisible;
   doc["settingsShortcutVisible"] = s.settingsShortcutVisible;
@@ -862,6 +870,7 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   doc["screenCleanShortcutVisible"] = s.screenCleanShortcutVisible;
   doc["sleepShortcutVisible"] = s.sleepShortcutVisible;
   doc["opdsBrowserShortcutVisible"] = s.opdsBrowserShortcutVisible;
+  doc["gymTrackerShortcutVisible"] = s.gymTrackerShortcutVisible;
 
   return saveJsonDocumentToFile("CPS", path, doc);
 }
@@ -1070,6 +1079,10 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
       clamp(doc["opdsBrowserShortcut"] | s.opdsBrowserShortcut, shortcutLocationCount, s.opdsBrowserShortcut);
   s.opdsBrowserShortcutOrder = clamp(doc["opdsBrowserShortcutOrder"] | s.opdsBrowserShortcutOrder, shortcutOrderCount,
                                      s.opdsBrowserShortcutOrder);
+  s.gymTrackerShortcut =
+      clamp(doc["gymTrackerShortcut"] | s.gymTrackerShortcut, shortcutLocationCount, s.gymTrackerShortcut);
+  s.gymTrackerShortcutOrder = clamp(doc["gymTrackerShortcutOrder"] | s.gymTrackerShortcutOrder, shortcutOrderCount,
+                                     s.gymTrackerShortcutOrder);
 
   s.browseFilesShortcutVisible = clamp(doc["browseFilesShortcutVisible"] | s.browseFilesShortcutVisible,
                                        static_cast<uint8_t>(2), s.browseFilesShortcutVisible);
@@ -1109,6 +1122,8 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
       clamp(doc["sleepShortcutVisible"] | s.sleepShortcutVisible, static_cast<uint8_t>(2), s.sleepShortcutVisible);
   s.opdsBrowserShortcutVisible = clamp(doc["opdsBrowserShortcutVisible"] | s.opdsBrowserShortcutVisible,
                                        static_cast<uint8_t>(2), s.opdsBrowserShortcutVisible);
+  s.gymTrackerShortcutVisible = clamp(doc["gymTrackerShortcutVisible"] | s.gymTrackerShortcutVisible,
+                                      static_cast<uint8_t>(2), s.gymTrackerShortcutVisible);
 
   normalizeShortcutOrderSettings(s);
   CrossPointSettings::validateFrontButtonMapping(s);

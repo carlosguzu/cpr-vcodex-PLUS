@@ -18,6 +18,7 @@
 #include "ScreenCleanActivity.h"
 #include "SleepAppActivity.h"
 #include "SyncDayActivity.h"
+#include "GymTrackerAppActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "OpdsServerStore.h"
@@ -207,6 +208,9 @@ void AppsActivity::openSelectedApp() {
     case ShortcutId::OpdsBrowser:
       activityManager.goToBrowser();
       return;
+    case ShortcutId::GymTracker:
+      activity = std::make_unique<GymTrackerAppActivity>(renderer, mappedInput);
+      break;
   }
 
   startActivityForResult(std::move(activity), [this](const ActivityResult&) {
